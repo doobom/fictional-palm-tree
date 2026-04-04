@@ -1,0 +1,152 @@
+/* src/index.css */
+
+/* ==========================================
+   1. 引入 Tailwind CSS 核心层
+   ========================================== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* ==========================================
+   2. 基础层 (Base): 全局变量与原生体验重置
+   ========================================== */
+@layer base {
+  :root {
+    /* 🌟 Telegram Web App 变量兜底 (Fallbacks) 
+       如果用户在普通浏览器(或直接输入网址)打开，将使用这里的默认浅色主题 
+    */
+    --tg-theme-bg-color: #ffffff;
+    --tg-theme-text-color: #111827; /* gray-900 */
+    --tg-theme-button-color: #2563eb; /* blue-600 */
+    --tg-theme-button-text-color: #ffffff;
+    --tg-theme-hint-color: #9ca3af; /* gray-400 */
+    --tg-theme-secondary-bg-color: #f3f4f6; /* gray-100 */
+  }
+
+  /* 浏览器系统深色模式兜底 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --tg-theme-bg-color: #111827;
+      --tg-theme-text-color: #f9fafb;
+      --tg-theme-button-color: #3b82f6;
+      --tg-theme-secondary-bg-color: #1f2937;
+    }
+  }
+
+  /* 🌟 全局移动端原生体验优化 */
+  html, body {
+    @apply antialiased;
+    
+    /* 阻止 iOS/Android 浏览器的下拉橡皮筋(边缘回弹)效果，让应用完全像 Native App */
+    overscroll-behavior-y: none; 
+    
+    /* 消除移动端点击按钮时默认出现的半透明蓝色背景色块 */
+    -webkit-tap-highlight-color: transparent; 
+    
+    /* 优化触控响应速度，禁止双击屏幕缩放放大 */
+    touch-action: manipulation; 
+  }
+}
+
+
+/* ==========================================
+   3. 工具层 (Utilities): 滚动条、动画与备用安全区
+   ========================================== */
+@layer utilities {
+  /* 隐藏滚动条但保留滚动功能 (用于首页的横向孩子切换列表) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none;    /* Firefox */
+  }
+
+  /* 基础系统级安全区 (供非全局控制的散装组件备用) */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* 抽屉与弹窗的基础进场动画 */
+  .animate-in {
+    animation-duration: 300ms;
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .fade-in {
+    animation-name: fadeIn;
+  }
+  .slide-in-from-bottom {
+    animation-name: slideInBottom;
+  }
+  .zoom-in {
+    animation-name: zoomIn;
+  }
+}
+
+/* 自定义关键帧定义 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideInBottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+
+/* ==========================================
+   4. 核心架构: Telegram 沉浸式全屏布局锁定
+   ========================================== */
+
+:root {
+  /* 声明我们要使用的动态 CSS 变量，具体数值由 usePlatformApp.ts 注入 */
+  --tg-safe-top:    0px;
+  --tg-safe-bottom: 0px;
+  --tg-safe-left:   0px;
+  --tg-safe-right:  0px;
+}
+
+body {
+  /* 🚨 绝对警告：千万不要在 body 上消费 --tg-safe-top 和 bottom！
+     原因：我们在组件内部（如 sticky header 和 底部 Navbar）已经使用 style 内联样式
+     进行了极其精准的 max(54px) 强制安全避让。如果在这里再加 padding，
+     会导致安全区高度被叠加计算两次，使得页面大面积留白、布局严重错位。
+  */
+  padding-top: 0px;
+  padding-bottom: 0px;
+  
+  /* 左右的安全区可以直接给 body，防止横屏时内容被齐刘海挡住 */
+  padding-left: var(--tg-safe-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--tg-safe-right, env(safe-area-inset-right, 0px));
+
+  /* 🌟 使用 100dvh (Dynamic Viewport Height)，完美适配系统输入法键盘弹起与收起 */
+  height: 100dvh;          
+  
+  /* 锁定 body，禁止外层整体滚动 */
+  overflow: hidden; 
+  
+  /* 使用 Telegram 的次级背景色兜底，避免页面切换时的白屏闪烁 */
+  background-color: var(--tg-theme-secondary-bg-color, #f9fafb);
+}
+
+#root {
+  /* 让所有的内容滚动，全部限制在 root 内部 */
+  height: 100%;
+  overflow-y: auto;
+  
+  /* 恢复 iOS 内部的顺滑惯性滚动 */
+  -webkit-overflow-scrolling: touch; 
+}

@@ -1,0 +1,20 @@
+{
+  "name": "family-points-backend",
+  "version": "1.0.0",
+  "description": "Family points system backend with Cloudflare D1 and Hono",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute family-points-system-backend --local --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute family-points-system-backend --remote --file=./schema.sql"
+  },
+  "dependencies": {
+    "hono": "^4.1.0",
+    "nanoid": "^5.0.6"
+  },
+  "devDependencies": {
+    "wrangler": "^3.38.0"
+  }
+}
