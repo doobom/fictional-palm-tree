@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/request';
-import OnboardingForm from './OnboardingForm';
+import OnboardingForm from './Onboarding';
 import { appToast } from '../../utils/toast'; // 🌟 引入全局 Toast
 
 type AuthStep = 'checking_env' | 'telegram_login' | 'email_login' | 'verify_otp' | 'onboarding';

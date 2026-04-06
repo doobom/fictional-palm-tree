@@ -1,111 +1,162 @@
 // src/middlewares/auth.js
-import { verifyTelegramData, verifyFeishuData } from '../utils/verify.js';
-import { verify } from 'hono/jwt'; // 🌟 引入 Hono 内置的 JWT 校验工具
+import { verifyTelegramData } from '../utils/verify.js';
+import { verify } from 'hono/jwt';
 
-// 🌟 架构优化：提取统一的白名单检查函数
-const isWhiteListed = (path) => {
-  return path.includes('/email/send-code') || 
-         path.includes('/email/verify') || 
-         path.includes('/webhook');
+/**
+ * 1. 绝对公开的路径：完全不需要验证身份（如支付回调、公开配置）
+ */
+const isPublicPath = (path) => {
+  return path.includes('/webhook') || path.includes('/public');
 };
 
 /**
- * 第一关：平台鉴权 (验证第三方身份真实性 或 验证 JWT)
+ * 2. 引导入驻路径：需要验证 TG/JWT 身份，但允许用户是“新用户”且“没有家庭”
+ */
+const isOnboardingPath = (path) => {
+  return path.includes('/api/auth/create-family') || 
+         path.includes('/api/auth/join-family') || 
+         path.includes('/api/auth/register') || 
+         path.includes('/api/auth/login');
+};
+
+/**
+ * 第一关：平台鉴权 (Platform Identification)
+ * 职责：解析并验证第三方身份真实性
  */
 export const platformAuth = async (c, next) => {
-  // 1. 遇到白名单，直接放行并中断当前中间件的拦截
-  if (isWhiteListed(c.req.path)) {
-    return await next(); 
-  }
-  
-  // 🌟 新增：提取 JWT Token
-  const authHeader = c.req.header('Authorization');
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  if (isPublicPath(c.req.path)) return await next();
 
+  const authHeader = c.req.header('Authorization');
   const tgData = c.req.header('X-Telegram-Init-Data');
-  const fsToken = c.req.header('X-Feishu-Token');
+  const deviceToken = c.req.header('X-Device-Token');
 
   let provider = null;
   let providerUid = null;
-  let providerName = null;
 
-  // 流程 A：优先校验 JWT (邮箱登录用户)
-  if (token) {
-    try {
-      // 校验 Token 是否被篡改或过期
-      const decodedPayload = await verify(token, c.env.JWT_SECRET);
-      provider = 'email';
-      providerUid = decodedPayload.email;
-      providerName = decodedPayload.email.split('@')[0]; // 取邮箱前缀作为默认昵称
-    } catch (e) {
-      console.warn(`[Auth Warn] JWT 校验失败或已过期. IP: ${c.req.header('cf-connecting-ip')}`);
-      return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: 'Invalid or expired token' }, 401);
-    }
-  } 
-  // 流程 B：校验 Telegram
-  else if (tgData) {
+  // 1. 验证签名并判定登录来源
+  if (deviceToken) {
+    provider = 'device';
+    providerUid = deviceToken;
+  } else if (tgData) {
     const tgUser = await verifyTelegramData(tgData, c.env.TELEGRAM_TOKEN);
     if (!tgUser) {
-      return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: 'Telegram signature invalid' }, 401);
+      return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: '无效的 Telegram 签名' }, 401);
     }
     provider = 'telegram';
     providerUid = String(tgUser.id);
-    providerName = tgUser.first_name || 'TG User';
-  } 
-  // 流程 C：校验飞书
-  else if (fsToken) {
-    const fsUser = await verifyFeishuData(fsToken, c.env.FEISHU_SECRET);
-    if (!fsUser) return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: 'Feishu token invalid' }, 401);
-    provider = 'feishu';
-    providerUid = String(fsUser.open_id);
-    providerName = fsUser.name;
-  } 
-  // 兜底：无任何有效凭证
-  else {
-    return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: 'Missing authentication credentials' }, 401);
+  } else if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const payload = await verify(token, c.env.JWT_SECRET);
+      provider = 'email'; 
+      providerUid = payload.email || payload.uid;
+    } catch (e) {
+      return c.json({ success: false, errorCode: 'ERR_TOKEN_EXPIRED', errorMessage: '登录已过期，请重新进入' }, 401);
+    }
   }
 
-  // 存入上下文，完美衔接你原本的 auth_bindings 逻辑！
-  c.set('platform', { provider, providerUid, providerName });
+  // 纯 Web 环境且没有任何凭证时，直接拦截
+  if (!provider) {
+    return c.json({ success: false, errorCode: 'ERR_NO_CREDENTIALS', errorMessage: '未授权的访问' }, 401);
+  }
+
+  // 2. 查找账户绑定关系
+  const binding = await c.env.DB.prepare(`
+    SELECT internal_id, user_type FROM auth_bindings 
+    WHERE provider = ? AND provider_uid = ?
+  `).bind(provider, providerUid).first();
+
+  if (!binding) {
+    // 🌟 核心修复：如果是新用户在走创建/加入家庭流程，我们不能拦截！
+    // 必须把解析到的身份注入上下文，防止控制器中读取 `auth.provider` 报错。
+    if (isOnboardingPath(c.req.path)) {
+      c.set('auth', { 
+        isNewUser: true, 
+        provider: provider, 
+        providerUid: providerUid 
+      });
+      return await next();
+    }
+    
+    // 如果是老用户请求业务接口，但数据库里没找到，返回 404 让前端跳转到引导页
+    return c.json({ 
+      success: false, 
+      errorCode: 'ERR_USER_NOT_FOUND', 
+      needRegister: true 
+    }, 404);
+  }
+
+  // 3. 将已注册用户的身份存入上下文
+  c.set('auth', {
+    internalId: binding.internal_id,
+    userType: binding.user_type,
+    provider: provider,
+    providerUid: providerUid
+  });
+
   await next();
 };
 
 /**
- * 第二关：应用鉴权 (确认是否已绑定家庭)
- * ⚠️ 这个函数保持不变！因为它完全依赖第一关传递的 c.get('platform')
+ * 第二关：应用鉴权 (Application & Multi-tenant Context)
+ * 职责：基于 x-family-id 确认用户在当前家庭的权限
  */
 export const requireAppUser = async (c, next) => {
-  // 🌟 核心修复：第二关同样必须给白名单开绿灯！
-  // 阻止 Webhook 继续往下走去读取 undefined 的 payload
-  if (isWhiteListed(c.req.path)) {
-    return await next(); 
+  // 🌟 核心修复：公开路径和入驻路径（此时还没家庭）直接放行
+  if (isPublicPath(c.req.path) || isOnboardingPath(c.req.path)) return await next();
+
+  const auth = c.get('auth');
+  const targetFamilyId = c.req.header('x-family-id');
+
+  // 特例放行：获取个人信息时如果没有传入 family-id，允许放行（用于初次加载家庭列表）
+  if (!targetFamilyId && c.req.path.includes('/api/user/me')) {
+    return await next();
   }
 
-  const platform = c.get('platform');
-  try {
-    const dbRecord = await c.env.DB.prepare(`
-      SELECT 
-        b.internal_id, b.user_type, COALESCE(u.family_id, ch.family_id) AS family_id,
-        u.role AS parent_role, ch.name AS child_name, COALESCE(u.locale, ch.locale, 'zh-CN') AS locale, f.timezone
-      FROM auth_bindings b
-      LEFT JOIN users u ON b.internal_id = u.id AND b.user_type = 'parent'
-      LEFT JOIN children ch ON b.internal_id = ch.id AND b.user_type = 'child'
-      LEFT JOIN families f ON COALESCE(u.family_id, ch.family_id) = f.id
-      WHERE b.provider = ? AND b.provider_uid = ?
-    `).bind(platform.provider, platform.providerUid).first();
+  if (!targetFamilyId) {
+    return c.json({ success: false, errorCode: 'ERR_FAMILY_CONTEXT_MISSING', errorMessage: '请先选择一个家庭' }, 400);
+  }
 
-    if (!dbRecord) {
-      return c.json({ success: false, errorCode: 'ERR_USER_NOT_FOUND', errorMessage: 'User not registered.', needRegister: true }, 404);
+  try {
+    let context = null;
+
+    if (auth.userType === 'parent') {
+      context = await c.env.DB.prepare(`
+        SELECT m.role, f.timezone, f.point_name, f.point_emoji
+        FROM memberships m
+        JOIN families f ON m.family_id = f.id
+        WHERE m.user_id = ? AND m.family_id = ?
+      `).bind(auth.internalId, targetFamilyId).first();
+
+    } else if (auth.userType === 'child') {
+      context = await c.env.DB.prepare(`
+        SELECT 'child' as role, f.timezone, f.point_name, f.point_emoji
+        FROM children c
+        JOIN families f ON c.family_id = f.id
+        WHERE c.id = ? AND c.family_id = ?
+      `).bind(auth.internalId, targetFamilyId).first();
     }
 
+    if (!context) {
+      return c.json({ success: false, errorCode: 'ERR_FORBIDDEN', errorMessage: '您不在该家庭成员名单中' }, 403);
+    }
+
+    // 设置业务用户信息上下文
     c.set('user', {
-      internalId: dbRecord.internal_id, familyId: dbRecord.family_id, userType: dbRecord.user_type,     
-      role: dbRecord.parent_role || 'none', childName: dbRecord.child_name || null,
-      locale: dbRecord.locale, timezone: dbRecord.timezone 
+      id: auth.internalId,
+      familyId: targetFamilyId,
+      userType: auth.userType,
+      role: context.role,
+      timezone: context.timezone,
+      currency: {
+        name: context.point_name,
+        emoji: context.point_emoji
+      }
     });
+
     await next();
   } catch (error) {
-    console.error(`[Auth Error] 数据库查询失败:`, error);
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: 'Internal Server Error' }, 500);
+    console.error(`[Auth Middleware Error]`, error);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: '服务器繁忙，请稍后再试' }, 500);
   }
 };

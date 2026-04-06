@@ -1,172 +1,153 @@
+// frontend/src/pages/child/ChildDashboard.tsx
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Wallet, Gift, Trophy } from 'lucide-react';
-import api from '../../api/request';
+import { useUserStore } from '../../store';
+import { usePlatformApp } from '../../hooks/usePlatformApp';
+import service, { ApiResponse } from '../../api/request'; // 🌟 导入 ApiResponse 泛型
+import { appToast } from '../../utils/toast'; // 🌟 统一使用 appToast
 
-// 🌟 引入真实的业务组件
-import ChildRewards from './ChildRewards';
-import ChildAchievements from './ChildAchievements';
+// 1. 修复接口定义：移除 extends any，直接定义清晰的数据结构
+export interface ChildDetail {
+  id: string;
+  name: string;
+  avatar: string;
+  balance: number;
+  achievementCount: number;
+  // 如果后端还会返回其他未知字段，可以使用索引签名保留扩展性
+  [key: string]: any; 
+}
 
-export default function ChildDashboard() {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'home' | 'rewards' | 'achievements'>('home');
+const ChildDashboard: React.FC = () => {
+  // 2. 从全局 Store 获取当前上下文
+  const { currentFamilyId, families, user } = useUserStore();
+  const { triggerImpact } = usePlatformApp(); // 触感反馈
   
-  const [myProfile, setMyProfile] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [data, setData] = useState<ChildDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // 获取当前家庭的个性化配置 (如积分名称、Emoji)
+  const currentFamily = families.find(f => f.id === currentFamilyId);
+
+  // 3. 监听家庭切换，拉取当前家庭下的孩子数据
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const meRes: any = await api.get('/me');
-        const myId = meRes.data.internalId;
+    // 确保 user 存在且当前有选中的家庭
+    if (currentFamilyId && user?.id) {
+      fetchChildData();
+    }
+  }, [currentFamilyId, user?.id]);
 
-        const childRes: any = await api.get('/children/list');
-        const profile = childRes.data.find((c: any) => c.id === myId);
-        setMyProfile(profile);
-
-        const historyRes: any = await api.get(`/scores/history?childId=${myId}&limit=20`);
-        setHistory(historyRes.data);
-      } catch (err) {
-        // 全局拦截器处理
-      } finally {
-        setLoading(false);
+  const fetchChildData = async () => {
+    setLoading(true);
+    try {
+      // 🌟 严格指定泛型，消除 res.success 报错
+      // 拦截器会自动注入 x-family-id，后端会校验该 user.id 在该家庭下的数据
+      const res = await service.get<any, ApiResponse<ChildDetail>>(`/children/${user?.id}`);
+      
+      if (res.success) {
+        setData(res.data);
       }
-    };
-    
-    fetchData();
-  }, []);
+    } catch (err) {
+      // 报错已由 api/request.ts 拦截器统一处理并 toast
+      console.error('Failed to fetch child data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // 🌟 替换为多语言加载提示
-  if (loading) return <div className="flex h-screen items-center justify-center font-bold text-blue-500 animate-pulse">{t('child.loading')}</div>;
-  if (!myProfile) return <div className="text-center mt-20 text-red-500">{t('child.load_failed')}</div>;
+  /**
+   * 4. 模拟发起兑换申请/前往商城
+   */
+  const handleRedeemRequest = () => {
+    triggerImpact('heavy'); // 兑换时的重度震动反馈，增强沉浸感
+    appToast.info('正在为您打开奖品商店...'); // 🌟 使用 appToast
+    // window.location.hash = '#/child/rewards';
+  };
 
-  const currentCoins = myProfile.score_gained - myProfile.score_spent;
+  // 骨架屏或加载提示
+  if (loading && !data) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 pb-20">
+        <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-blue-500 font-bold animate-pulse">正在进入您的专属乐园...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] dark:bg-gray-900 pb-24 font-sans">
-      
-      {/* 顶部个人信息 */}
-      {/* pt-tg-safe-content = var(--tg-safe-top) + 16px 舒适间距，一次解决遮挡+间距 */}
-      <div className="pt-tg-safe-content px-6 pb-2 flex items-center space-x-3"
-        // 顶部标题栏 / 头像区域
-        style={{ 
-          paddingTop: 'calc(max(var(--tg-safe-top, 0px), var(--app-fallback-top, 0px)) + 16px)' 
-        }}
-      >
-        <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-full shadow-sm flex items-center justify-center text-2xl border-2 border-yellow-400">
-          {myProfile.avatar || '👦'}
+    <div className="child-dashboard bg-gradient-to-b from-blue-50 to-white min-h-screen p-4 pb-24">
+      {/* 1. 个人资料与积分卡片 */}
+      <section className="relative bg-white rounded-3xl p-6 shadow-xl shadow-blue-100 mb-6 overflow-hidden">
+        {/* 背景装饰 Emoji */}
+        <div className="absolute -top-4 -right-4 p-4 opacity-10 text-8xl transform rotate-12">
+          {currentFamily?.point_emoji || '🪙'}
         </div>
-        <div>
-          <h1 className="text-xl font-extrabold text-gray-900 dark:text-white">
-            {/* 🌟 替换为多语言问候语 */}
-            {t('child.greeting', { name: myProfile.name })}
-          </h1>
-          <p className="text-xs text-gray-500 font-medium">
-            {/* 🌟 替换为多语言激励语 */}
-            {t('child.motivation')}
-          </p>
+        
+        <div className="flex items-center gap-4 mb-6 relative z-10">
+          <div className="text-5xl p-3 bg-yellow-50 border-2 border-yellow-100 rounded-2xl shadow-sm">
+            {data?.avatar || '👦'}
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Hi, {data?.name}!</h1>
+            <p className="text-gray-500 text-sm">{currentFamily?.name} 的小勇士</p>
+          </div>
+        </div>
+
+        <div className="bg-blue-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-300 relative z-10">
+          <p className="text-blue-100 text-sm font-medium mb-1">我的当前可用{currentFamily?.point_name || '积分'}</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-black tracking-tight">{data?.balance || 0}</span>
+            <span className="text-xl opacity-90">{currentFamily?.point_emoji || '🪙'}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. 统计概览 */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 text-center shadow-sm">
+          <p className="text-3xl mb-2">🏆</p>
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">已获成就</p>
+          <p className="text-2xl font-black text-gray-800 mt-1">{data?.achievementCount || 0}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 text-center shadow-sm">
+          <p className="text-3xl mb-2">🎁</p>
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">心愿清单</p>
+          <p className="text-2xl font-black text-gray-800 mt-1">3</p>
         </div>
       </div>
 
-      {/* 核心内容区 */}
-      {activeTab === 'home' && (
-        <div className="p-4 space-y-6">
-          
-          {/* 1. 绚丽的金币余额卡片 */}
-          <div className="bg-gradient-to-tr from-orange-400 via-yellow-400 to-yellow-300 rounded-[2rem] p-6 shadow-xl shadow-orange-200 dark:shadow-none relative overflow-hidden">
-            <div className="relative z-10 text-center mt-2">
-              <p className="text-yellow-900/80 font-bold mb-1">{t('child.my_coins')}</p>
-              <div className="text-6xl font-black text-white drop-shadow-md flex justify-center items-center">
-                <span className="text-4xl mr-2">🪙</span>
-                {currentCoins}
-              </div>
-            </div>
-            
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-white opacity-30 rounded-full blur-2xl"></div>
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-orange-500 opacity-20 rounded-full blur-2xl"></div>
+      {/* 3. 快捷行动区 */}
+      <h3 className="font-bold text-gray-700 mb-3 px-1 text-lg">快速行动</h3>
+      <div className="grid gap-4">
+        <button 
+          onClick={handleRedeemRequest}
+          className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white p-4 rounded-2xl font-bold flex items-center justify-between transition-all active:scale-95 shadow-lg shadow-orange-200"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl bg-white/20 p-2 rounded-xl">🛍️</span>
+            <span className="text-lg">兑换我的心仪奖品</span>
           </div>
+          <span className="opacity-80 text-xl">→</span>
+        </button>
 
-          {/* 2. 积分明细列表 (Timeline) */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm">
-            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-              <span className="w-1 h-4 bg-yellow-400 rounded-full mr-2"></span>
-              {t('child.history')}
-            </h2>
-            
-            {history.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                {t('child.empty_history')}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {history.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between border-b border-gray-50 dark:border-gray-700/50 pb-3 last:border-0 last:pb-0">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
-                        record.points > 0 ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                      }`}>
-                        {record.points > 0 ? '📈' : '📉'}
-                      </div>
-                      <div>
-                        <p className="font-bold text-gray-800 dark:text-gray-200 text-sm">
-                          {/* 🌟 替换默认原因为多语言 */}
-                          {record.rule_name || record.description || t('child.default_reason')}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {new Date(record.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`font-black text-lg ${record.points > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {record.points > 0 ? '+' : ''}{record.points}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        <button 
+          onClick={() => appToast.info('开发中，敬请期待！')}
+          className="w-full bg-white border-2 border-gray-100 p-4 rounded-2xl font-bold flex items-center justify-between text-gray-700 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl bg-gray-50 p-2 rounded-xl">📈</span>
+            <span className="text-lg">查看积分成长轨迹</span>
           </div>
-
-        </div>
-      )}
-
-      {/* 🌟 挂载真实的视图组件 */}
-      {activeTab === 'rewards' && <ChildRewards />}
-      {activeTab === 'achievements' && <ChildAchievements />}
-
-      {/* 孩子端专属底部导航栏 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-t z-50 pb-tg-safe"
-        // 底部导航栏
-        style={{ 
-          paddingBottom: 'calc(max(var(--tg-safe-bottom, 0px), var(--app-fallback-bottom, 0px)) + 8px)' 
-        }}
-      >
-        <div className="flex justify-around items-center h-20 px-2">
-          <NavItem icon={<Wallet />} label={t('child.tab_home')} isActive={activeTab === 'home'} onClick={() => setActiveTab('home')} activeColor="text-yellow-500" />
-          <NavItem icon={<Gift />} label={t('child.tab_rewards')} isActive={activeTab === 'rewards'} onClick={() => setActiveTab('rewards')} activeColor="text-pink-500" />
-          <NavItem icon={<Trophy />} label={t('child.tab_achievements')} isActive={activeTab === 'achievements'} onClick={() => setActiveTab('achievements')} activeColor="text-blue-500" />
-        </div>
+          <span className="text-gray-300 text-xl">→</span>
+        </button>
       </div>
 
+      {/* 4. 底部鼓励语 */}
+      <div className="mt-10 flex justify-center">
+        <p className="text-center text-gray-400 text-xs italic bg-white/50 px-4 py-2 rounded-full inline-block">
+          ✨ 继续加油！再获得 50 {currentFamily?.point_name || '积分'} 就能兑换惊喜啦！
+        </p>
+      </div>
     </div>
   );
-}
+};
 
-// 底部导航项子组件
-function NavItem({ icon, label, isActive, onClick, activeColor }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, activeColor: string }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`flex flex-col items-center justify-center w-full h-full space-y-1.5 transition-all duration-300 ${
-        isActive ? activeColor : 'text-gray-400 hover:text-gray-500'
-      }`}
-    >
-      <div className={`transition-transform duration-300 ${isActive ? 'scale-125 -translate-y-1' : 'scale-100'}`}>
-        {React.cloneElement(icon as React.ReactElement, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
-      </div>
-      <span className={`text-[11px] font-bold transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-70'}`}>
-        {label}
-      </span>
-    </button>
-  );
-}
+export default ChildDashboard;

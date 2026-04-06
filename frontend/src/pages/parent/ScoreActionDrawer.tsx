@@ -1,189 +1,207 @@
-import React, { useState, useEffect } from 'react';
+// frontend/src/pages/parent/ScoreActionDrawer.tsx
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
-import api from '../../api/request';
-import { useAppStore } from '../../store';
+import { useUserStore, Child } from '../../store'; // 🌟 导入正确的 Store 和 Child 接口
+import service, { ApiResponse } from '../../api/request'; // 🌟 导入通用响应接口
+import { appToast } from '../../utils/toast'; // 🌟 统一使用 appToast
 
-interface DrawerProps {
+export interface ScoreActionDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'plus' | 'minus';
-  childId: string;
-  childName: string;
-  onSuccess: () => void; // 操作成功后的回调（用于刷新首页数据）
+  onSuccess?: () => void;
+  child: Child | null; // 明确传入的 child 类型
 }
 
-export default function ScoreActionDrawer({ isOpen, onClose, type, childId, childName, onSuccess }: DrawerProps) {
+export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child }: ScoreActionDrawerProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'rules' | 'custom'>('rules');
-  const [rules, setRules] = useState<any[]>([]);
   
-  // 自定义表单状态
-  const [customPoints, setCustomPoints] = useState('');
-  const [customReason, setCustomReason] = useState('');
+  // 1. 获取全局状态和方法
+  const { updateScoreLocal, families, currentFamilyId } = useUserStore();
+  
+  // 获取当前家庭配置（为了显示特定的积分 Emoji 和名称）
+  const currentFamily = families.find(f => f.id === currentFamilyId);
+
+  // 2. 本地表单状态
+  const [actionType, setActionType] = useState<'add' | 'deduct'>('add');
+  const [points, setPoints] = useState<number | ''>(''); // 允许为空以便用户自由输入
+  const [remark, setRemark] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // 当抽屉打开时，拉取当前家庭的规则列表
+  // 快捷分数预设
+  const quickPoints = actionType === 'add' ? [1, 2, 5, 10] : [1, 5, 10, 20];
+
+  // 3. 抽屉打开时重置状态
   useEffect(() => {
     if (isOpen) {
-      // 假设你后端有一个获取规则的接口，按类型(加分/扣分)过滤
-      // 如果后端还没写这个接口，我稍后可以补给你
-      api.get('/family/rules').then((res: any) => {
-        // 前端简单过滤：加分拿正数规则，扣分拿负数规则
-        const filtered = res.data.filter((r: any) => type === 'plus' ? r.points > 0 : r.points < 0);
-        setRules(filtered);
-      }).catch(() => {});
+      setActionType('add');
+      setPoints('');
+      setRemark('');
     }
-  }, [isOpen, type]);
+  }, [isOpen, child]);
 
-  // 重置状态
-  useEffect(() => {
-    if (!isOpen) {
-      setCustomPoints('');
-      setCustomReason('');
-      setRules([]);
-      setActiveTab('rules');
+  // 4. 提交积分变动
+  const handleSubmit = async () => {
+    if (!child) return;
+    
+    const numPoints = Number(points);
+    if (!numPoints || numPoints <= 0) {
+      appToast.warn('请输入有效的分数');
+      return;
     }
-  }, [isOpen]);
 
-  // 核心：提交分数变动
-  const handleSubmit = async (ruleId?: string, points?: number, desc?: string) => {
     setLoading(true);
     try {
-      const payload = {
-        childId,
-        ruleId: ruleId || null,
-        points: points || (type === 'minus' ? -Math.abs(Number(customPoints)) : Math.abs(Number(customPoints))),
-        description: desc || customReason
-      };
+      // 计算最终分值（正数或负数）
+      const finalPoints = actionType === 'add' ? numPoints : -Math.abs(numPoints);
 
-      await api.post('/scores/adjust', payload);
-      onSuccess(); // 通知父组件刷新数据
-      onClose();   // 关闭抽屉
+      // 🌟 严格使用泛型，消除 res.success 报错
+      const res = await service.post<any, ApiResponse>('/scores/adjust', {
+        childId: child.id,
+        points: finalPoints,
+        remark: remark || (actionType === 'add' ? '手动奖励' : '手动扣除')
+      });
+
+      if (res.success) {
+        appToast.success(`成功为 ${child.name} ${actionType === 'add' ? '增加' : '扣除'}了 ${numPoints} 分`);
+        
+        // 乐观更新 UI：触发本地 Store 更新，使 Dashboard 数字实时跳动
+        updateScoreLocal(child.id, finalPoints);
+
+        onSuccess?.();
+        onClose();
+      }
     } catch (err) {
-      // 错误已经由拦截器处理
+      // 报错已由 request.ts 拦截器统一处理
     } finally {
       setLoading(false);
     }
   };
 
-  // 动画控制：如果没打开，不渲染内容
-  if (!isOpen) return null;
+  if (!isOpen || !child) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      {/* 背景遮罩层 (点击可关闭) */}
+    <>
+      {/* 遮罩层 */}
       <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
+        className="fixed inset-0 bg-black/40 z-40 transition-opacity"
         onClick={onClose}
       />
-
-      {/* 抽屉面板本体 */}
-      <div className="relative bg-white dark:bg-gray-800 w-full rounded-t-3xl shadow-2xl p-6 pb-safe animate-in slide-in-from-bottom duration-300 ease-out">
+      
+      {/* 底部抽屉 */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-50 rounded-t-3xl z-50 transform transition-transform duration-300 max-h-[90vh] flex flex-col shadow-2xl">
         
-        {/* 顶部把手与标题 */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className={`text-lg font-bold ${type === 'plus' ? 'text-green-600' : 'text-red-500'}`}>
-            {type === 'plus' ? t('parent.drawer_add_title', { name: childName }) : t('parent.drawer_minus_title', { name: childName })}
-          </h2>
-          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 hover:text-gray-800 dark:hover:text-white">
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* 选项卡切换 */}
-        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-6">
-          <button
-            onClick={() => setActiveTab('rules')}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              activeTab === 'rules' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
-            }`}
+        {/* 头部：展示目标成员信息 */}
+        <div className="p-5 bg-white rounded-t-3xl border-b border-gray-100 relative">
+          <button 
+            onClick={onClose}
+            className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
           >
-            {t('parent.tab_rules')}
+            ✕
           </button>
-          <button
-            onClick={() => setActiveTab('custom')}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              activeTab === 'custom' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
-            }`}
-          >
-            {t('parent.tab_custom')}
-          </button>
-        </div>
-
-        {/* 视图 A：选择常规规则 */}
-        {activeTab === 'rules' && (
-          <div className="max-h-[50vh] overflow-y-auto space-y-3 pb-4 scrollbar-hide">
-            {rules.length > 0 ? rules.map((rule) => (
-              <button
-                key={rule.id}
-                disabled={loading}
-                onClick={() => handleSubmit(rule.id, rule.points, rule.name)}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-2xl transition border border-transparent active:border-blue-500"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{rule.emoji}</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{rule.name}</span>
-                </div>
-                <span className={`font-bold ${rule.points > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {rule.points > 0 ? '+' : ''}{rule.points}
-                </span>
-              </button>
-            )) : (
-              <div className="text-center py-6 text-gray-400 text-sm">暂无对应的规则记录</div>
-            )}
+          <div className="flex flex-col items-center">
+            <span className="text-4xl bg-gray-50 w-16 h-16 flex items-center justify-center rounded-2xl mb-2 shadow-sm">
+              {child.avatar}
+            </span>
+            <h3 className="text-xl font-bold text-gray-800">
+              调整 {child.name} 的积分
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              当前余额: <strong className="text-gray-800">{child.balance}</strong> {currentFamily?.point_name}
+            </p>
           </div>
-        )}
+        </div>
 
-        {/* 视图 B：自定义输入 */}
-        {activeTab === 'custom' && (
-          <div className="space-y-4 pb-4">
+        <div className="p-5 overflow-y-auto flex-1 space-y-6">
+          {/* 操作类型切换 */}
+          <div className="flex bg-gray-100 p-1 rounded-xl">
+            <button
+              onClick={() => { setActionType('add'); setPoints(''); }}
+              className={`flex-1 py-3 font-bold rounded-lg transition-all ${
+                actionType === 'add' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
+              }`}
+            >
+              ➕ 奖励
+            </button>
+            <button
+              onClick={() => { setActionType('deduct'); setPoints(''); }}
+              className={`flex-1 py-3 font-bold rounded-lg transition-all ${
+                actionType === 'deduct' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500'
+              }`}
+            >
+              ➖ 扣除
+            </button>
+          </div>
+
+          {/* 表单输入区 */}
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+            {/* 快捷按钮 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('parent.custom_points')}
+              <label className="block text-sm font-bold text-gray-700 mb-3">快捷选择</label>
+              <div className="flex gap-2">
+                {quickPoints.map(val => (
+                  <button
+                    key={val}
+                    onClick={() => setPoints(val)}
+                    className={`flex-1 py-2 rounded-xl font-bold border-2 transition-all ${
+                      points === val 
+                        ? (actionType === 'add' ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-red-500 bg-red-50 text-red-600')
+                        : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200'
+                    }`}
+                  >
+                    {val}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 手动输入 */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                输入额度 ({currentFamily?.point_name || '积分'})
               </label>
-              <div className="relative">
-                <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-bold text-lg ${type === 'plus' ? 'text-green-500' : 'text-red-500'}`}>
-                  {type === 'plus' ? '+' : '-'}
-                </span>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{currentFamily?.point_emoji || '🪙'}</span>
                 <input
                   type="number"
-                  value={customPoints}
-                  onChange={(e) => setCustomPoints(e.target.value)}
-                  placeholder={t('parent.custom_points_ph')}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  min="1"
+                  value={points}
+                  onChange={(e) => setPoints(parseInt(e.target.value) || '')}
+                  className="flex-1 bg-gray-50 p-3 rounded-xl font-bold text-lg text-gray-800 border-none focus:ring-2 focus:ring-blue-100"
+                  placeholder="自定义数值"
                 />
               </div>
             </div>
             
+            {/* 备注信息 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('parent.custom_reason')}
-              </label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">操作原因 (选填)</label>
               <input
                 type="text"
-                value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
-                placeholder={t('parent.custom_reason_ph')}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                className="w-full bg-gray-50 p-3 rounded-xl border-none focus:ring-2 focus:ring-blue-100"
+                placeholder={actionType === 'add' ? '例如：主动洗碗' : '例如：没有按时完成作业'}
+                maxLength={50}
               />
             </div>
-
-            <button
-              disabled={loading || !customPoints || Number(customPoints) <= 0}
-              onClick={() => handleSubmit()}
-              className={`w-full py-4 mt-4 rounded-xl font-bold text-white transition-colors ${
-                type === 'plus' 
-                  ? 'bg-green-500 hover:bg-green-600 disabled:bg-green-300' 
-                  : 'bg-red-500 hover:bg-red-600 disabled:bg-red-300'
-              }`}
-            >
-              {loading ? '...' : t('parent.btn_confirm')}
-            </button>
           </div>
-        )}
+        </div>
 
+        {/* 底部按钮 */}
+        <div className="p-5 bg-white border-t border-gray-100">
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !points || Number(points) <= 0}
+            className={`w-full py-4 rounded-2xl font-bold text-white text-lg transition-all active:scale-95 shadow-lg ${
+              actionType === 'add' 
+                ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' 
+                : 'bg-red-500 hover:bg-red-600 shadow-red-200'
+            } disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed`}
+          >
+            {loading ? '处理中...' : `确认${actionType === 'add' ? '发放' : '扣除'}`}
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,81 +1,131 @@
-// src/api/request.ts
-import axios from 'axios';
-import WebApp from '@twa-dev/sdk';
-import i18n from '../locales/index'; // 假设 i18n 配置在这个目录
-import { appToast } from '../utils/toast'; // 🌟 引入刚刚封装的带有震动反馈的 Toast
+// frontend/src/api/request.ts
+import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { useUserStore } from '../store';
+import { appToast } from '../utils/toast';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://family-points-system-backend.dunp.workers.dev/api',
+/**
+ * 1. 定义后端标准响应结构
+ */
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data: T;
+  errorCode?: string;
+  errorMessage?: string;
+  errorParams?: Record<string, any>;
+}
+
+/**
+ * 2. 创建 Axios 实例
+ */
+const service: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// 1. 请求拦截器：动态注入身份凭证
-api.interceptors.request.use((config) => {
-  if (WebApp.initData) {
-    config.headers['X-Telegram-Init-Data'] = WebApp.initData;
-  } else {
-    const jwtToken = localStorage.getItem('jwt_token');
-    if (jwtToken) {
-      config.headers['Authorization'] = `Bearer ${jwtToken}`;
+/**
+ * 3. 请求拦截器：注入身份凭证与家庭上下文
+ */
+service.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    // 从 Zustand Store 获取最新状态 (非 Hook 方式调用)
+    const { currentFamilyId, token, telegramInitData } = useUserStore.getState();
+
+    // 注入 Telegram 初始化数据
+    if (telegramInitData) {
+      config.headers['X-Telegram-Init-Data'] = telegramInitData;
     }
-  }
-  // 🌟 让后端知道当前前端用的是什么语言，方便以后扩展后端多语言通知
-  config.headers['Accept-Language'] = i18n.language;
-  return config;
-});
 
-// 2. 响应拦截器：全局错误接管与多语言翻译
-api.interceptors.response.use(
-  (response) => {
-    const res = response.data;
-    if (res && res.success === false) {
-      const errorCode = res.errorCode || 'ERR_SYSTEM_ERROR';
-      
-      // 🌟 核心翻译逻辑：
-      // 1. 去 locales 里面找 `api.${errorCode}` 对应的文本
-      // 2. 如果找不到，就用后端传来的 errorMessage 作为兜底
-      // 3. 动态参数 (如果有)：传入 res.errorParams
-      const translatedMsg = i18n.t(`api.${errorCode}`, res.errorMessage || '请求失败', res.errorParams) as string;;
-      
-      // 弹出多语言提示
-      appToast.error(translatedMsg);
-      
-      // 抛出异常，阻止前端代码继续执行后续的 .then()
+    // 注入 JWT Token
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // 注入当前活跃家庭上下文 (核心多租户逻辑)
+    if (currentFamilyId) {
+      config.headers['x-family-id'] = currentFamilyId;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+/**
+ * 4. 响应拦截器：处理业务错误码与自动重定向
+ */
+service.interceptors.response.use(
+  (response: AxiosResponse) => {
+    // 强制转换为 ApiResponse 类型以适配后端结构
+    const res = response.data as ApiResponse;
+
+    // 如果后端显式返回 success: false，则视为业务错误
+    if (res.success === false) {
+      handleBusinessError(res);
       return Promise.reject(res);
     }
-    return res;
+
+    // 返回经过拦截器剥离后的纯数据或标准响应对象
+    // 注意：此处返回 res，后续调用处直接通过 res.success 访问
+    return res as any; 
   },
   (error) => {
-    const res = error.response?.data || error;
-    
-    if (res.errorCode) {
-      // 核心 1：拦截未注册/未加入家庭的用户，静默抛出给 App.tsx 处理路由跳转
-      if (res.errorCode === 'ERR_USER_NOT_FOUND' && res.needRegister) {
-        return Promise.reject({ type: 'NEED_REGISTER' });
-      }
-
-      // 核心 2：拦截 Token 失效，踢回登录页
-      if (res.errorCode === 'ERR_UNAUTHORIZED') {
-        localStorage.removeItem('jwt_token');
-        return Promise.reject({ type: 'NEED_LOGIN' });
-      }
-
-      // 🌟 核心 3：拦截所有常规业务报错，直接弹出带有震动的 Toast！
-      // 它会优先去 i18n 字典找多语言翻译，如果没配，就会默认显示后端传过来的 errorMessage。
-      const errorMsg = i18n.t(`api.${res.errorCode}`, res.errorParams || {}, { 
-        defaultValue: res.errorMessage || '请求失败，请稍后重试' 
-      });
+    const { response } = error;
+    if (response) {
+      const { status, data } = response as { status: number; data: ApiResponse };
       
-      appToast.error(errorMsg); // 💥 触发红色的 Error Toast + 手机震动！
-      console.warn('[API Warning]', errorMsg);
-      
+      switch (status) {
+        case 404: // 用户未注册 (ERR_USER_NOT_FOUND)
+          if (data?.errorCode === 'ERR_USER_NOT_FOUND') {
+            appToast.info('欢迎！请完成初始设置');
+            // 使用 Hash 路由跳转
+            window.location.hash = '#/onboarding';
+          }
+          break;
+          
+        case 400: // 缺失家庭上下文 (ERR_FAMILY_CONTEXT_MISSING)
+          if (data?.errorCode === 'ERR_FAMILY_CONTEXT_MISSING') {
+            appToast.warn('请先选择或创建一个家庭');
+            window.location.hash = '#/onboarding';
+          }
+          break;
+
+        case 401: // Token 过期
+          appToast.error('登录失效，请重新进入');
+          useUserStore.getState().logout();
+          window.location.hash = '#/auth';
+          break;
+
+        case 403: // 权限不足
+          appToast.error('您没有执行此操作的权限');
+          break;
+
+        default:
+          appToast.error(data?.errorMessage || '系统繁忙，请稍后再试');
+      }
     } else {
-      // 🌟 兜底：如果是彻底没网了、或者后端崩溃了报 500
-      appToast.error(i18n.t('api.NETWORK_ERROR', '网络连接异常，请检查网络'));
+      appToast.error('网络连接异常，请检查网络');
     }
-
     return Promise.reject(error);
   }
 );
 
-export default api;
+/**
+ * 辅助：处理具体的业务逻辑报错
+ */
+function handleBusinessError(res: ApiResponse) {
+  switch (res.errorCode) {
+    case 'ERR_DAILY_LIMIT_REACHED':
+      appToast.warn(`今日加分已达上限 (限额: ${res.errorParams?.limit || '-'})`);
+      break;
+    case 'ERR_INSUFFICIENT_POINTS':
+      appToast.error('积分不足，快去赚取更多吧！');
+      break;
+    default:
+      appToast.error(res.errorMessage || '操作失败');
+  }
+}
+
+export default service;

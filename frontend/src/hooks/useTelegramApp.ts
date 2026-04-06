@@ -1,82 +1,117 @@
-// src/hooks/useTelegramApp.ts
-import { useEffect } from 'react';
-import { detectPlatform } from '../utils/env'; // 🌟 引入环境探针
+// frontend/src/hooks/useTelegramApp.ts
+import { useEffect, useState, useCallback } from 'react';
+import { useUserStore } from '../store';
 
-export function useTelegramApp() {
-  const platform = detectPlatform();
-  const twa = (window as any).Telegram?.WebApp;
-  const isInTelegram = !!twa?.initData;
+// 定义 Hook 返回的状态接口
+export interface TelegramWebAppInfo {
+  isTelegram: boolean;
+  startParam: string | null;
+  colorScheme: 'light' | 'dark';
+  platform: string;
+  version: string;
+}
+
+export const useTelegramApp = () => {
+  const { setAuth } = useUserStore();
+  
+  const [tgInfo, setTgInfo] = useState<TelegramWebAppInfo>({
+    isTelegram: false,
+    startParam: null,
+    colorScheme: 'light',
+    platform: 'web', // 默认为普通 web 环境
+    version: 'unknown'
+  });
 
   useEffect(() => {
-    if (platform !== 'telegram' || !twa) return;
+    // 获取全局 Telegram 对象 (依赖于 src/types/telegram.d.ts 的类型声明)
+    const tg = window.Telegram?.WebApp;
 
-    try { twa.ready(); } catch (_) {}
+    if (tg) {
+      // 1. 初始化 App 视图
+      tg.ready();   // 告诉 TG 页面已加载完毕，可以隐藏 loading
+      tg.expand();  // 展开为全屏，防止用户滑动时意外关闭小程序
 
-    // 1. 注入安全区 CSS 变量
-    const applySafeArea = () => {
-      // 优先获取 contentSafeArea，如果为 0 则尝试 safeArea
-      let top = (twa.contentSafeAreaInset?.top ?? 0) || (twa.safeAreaInset?.top ?? 0);
-      let bottom = (twa.contentSafeAreaInset?.bottom ?? 0) || (twa.safeAreaInset?.bottom ?? 0);
+      // 2. 解析核心数据
+      const initData = tg.initData;
+      // 解析深层链接参数 (如邀请码: t.me/bot/app?startapp=INVITE_CODE)
+      const startParam = tg.initDataUnsafe?.start_param || null;
 
-      // 🌟 核心修复：全屏模式下的强制避让逻辑
-      // 如果开启了全屏，但系统返回的 inset 还是 0，强制设置一个最小安全值
-      if (twa.isFullscreen && top <= 0) {
-        // 通常刘海屏或带按钮的区域至少需要 44px - 48px
-        top = 48; 
+      // 3. 将身份凭证同步到全局 Store，供 request.ts 拦截器使用
+      if (initData) {
+        setAuth({ tgData: initData });
       }
 
-      const r = document.documentElement;
-      r.style.setProperty('--tg-safe-top', top + 'px');
-      r.style.setProperty('--tg-safe-bottom', bottom + 'px');
-      r.style.setProperty('--tg-safe-left', (twa.safeAreaInset?.left ?? 0) + 'px');
-      r.style.setProperty('--tg-safe-right', (twa.safeAreaInset?.right ?? 0) + 'px');
-    };
+      // 4. 更新本地环境状态
+      setTgInfo({
+        isTelegram: true,
+        startParam,
+        colorScheme: tg.colorScheme || 'light',
+        platform: tg.platform || 'unknown',
+        version: tg.version || 'unknown'
+      });
 
-    const applyTheme = () => {
-      try {
-        if (twa.isVersionAtLeast('6.1')) {
-          twa.setHeaderColor(twa.themeParams.bg_color || '#ffffff');
-          twa.setBackgroundColor(twa.themeParams.secondary_bg_color || '#f9fafb');
-        }
-        if (twa.colorScheme === 'dark') {
+      // 5. 监听主题变化，并自动同步 Tailwind 的 Dark Mode
+      const handleThemeChange = () => {
+        const newScheme = tg.colorScheme;
+        setTgInfo(prev => ({ ...prev, colorScheme: newScheme }));
+        
+        // 如果你的项目配置了 Tailwind 的 darkMode: 'class'
+        if (newScheme === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
         }
-      } catch (_) {}
-    };
+      };
 
-    // 3. 尝试真·全屏
-    if (typeof twa.requestFullscreen === 'function') {
-      twa.requestFullscreen()
-        .then(() => {
-          // 全屏成功后，稍微延迟一点点再计算，确保 SDK 拿到了最新的物理尺寸
-          setTimeout(applySafeArea, 100); 
-        })
-        .catch(() => {
-          try { twa.expand(); } catch (_) {}
-          applySafeArea();
-        });
+      // 初始化执行一次主题判定
+      handleThemeChange();
+      
+      // 绑定事件
+      tg.onEvent('themeChanged', handleThemeChange);
+
+      return () => {
+        tg.offEvent('themeChanged', handleThemeChange);
+      };
     } else {
-      try { twa.expand(); } catch (_) {}
-      applySafeArea();
+      // 非 TG 环境 (如浏览器直接打开调试)
+      setTgInfo(prev => ({ ...prev, isTelegram: false }));
     }
+  }, [setAuth]);
 
-    applyTheme();
+  /**
+   * --- 辅助方法区 ---
+   * 使用 useCallback 包裹，防止在其他组件的 useEffect 中引发无限重渲染
+   */
 
-    // 4. 绑定原生事件监听
-    twa.onEvent?.('themeChanged',           applyTheme);
-    twa.onEvent?.('fullscreenChanged',      applySafeArea);
-    twa.onEvent?.('safeAreaChanged',        applySafeArea);
-    twa.onEvent?.('contentSafeAreaChanged', applySafeArea);
+  // 1. 物理震动反馈：常用于点击按钮、加减分数时
+  const triggerImpact = useCallback((style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'light') => {
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred(style);
+    }
+  }, []);
 
-    return () => {
-      twa.offEvent?.('themeChanged',           applyTheme);
-      twa.offEvent?.('fullscreenChanged',      applySafeArea);
-      twa.offEvent?.('safeAreaChanged',        applySafeArea);
-      twa.offEvent?.('contentSafeAreaChanged', applySafeArea);
-    };
-  }, [platform, twa]);
+  // 2. 状态通知震动：常用于 API 请求成功/失败/警告时
+  const triggerNotification = useCallback((type: 'error' | 'success' | 'warning') => {
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred(type);
+    }
+  }, []);
 
-  return { isInTelegram, twa };
-}
+  // 3. 关闭小程序
+  const closeApp = useCallback(() => {
+    window.Telegram?.WebApp?.close();
+  }, []);
+
+  // 4. 暴露原生按钮对象 (方便在特定页面挂载底部大按钮或返回键)
+  const MainButton = window.Telegram?.WebApp?.MainButton;
+  const BackButton = window.Telegram?.WebApp?.BackButton;
+
+  return { 
+    ...tgInfo, 
+    triggerImpact, 
+    triggerNotification,
+    closeApp,
+    MainButton,
+    BackButton
+  };
+};

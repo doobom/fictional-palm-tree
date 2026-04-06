@@ -1,158 +1,86 @@
-// src/constants.js
+/**
+ * 全局业务常量定义
+ * 用于统一管理系统状态、权限、平台及错误码
+ */
 
-export const TELEGRAM_API = "https://api.telegram.org/bot";
-export const CONFIRMATION_TIMEOUT = 5 * 60; // 秒，用于 KV TTL
-export const TIMEZONE = "Asia/Shanghai";
-export const HISTORY_MAX_RECORDS = 1000; // 每个孩子最多保留记录数
-
-// ── KV key 常量（DATA / CACHE / HISTORY）──
-// 所有 KV 键名集中在此，避免散落各处的魔法字符串
-export const KV = {
-  CONFIG:               "config",
-  SCORES:               "scores",
-  ADMIN_IDS:            "adminIds",
-  SUPER_ADMIN_ID:       "superAdminId",
-  ADMIN_NICKS:          "adminNicks",
-  GOALS:                "goals",
-  ACHIEVEMENTS:         "achievements",
-  ANALYTICS:            "analytics",
-  RULES:                "rules",
-  DAILY_SUMMARY_CONFIG: "dailySummaryConfig",
-  APP_VERSION:          "appVersion",
-  AUTH_CONFIG:          "authConfig",
-
-  SYNC_VERSION:           "syncVersion",
-  CONFIRM_PREFIX:         "confirm_",         
-  DAILY_SUMMARY_SENT:     "dailySummarySent",  
-  RATE_LIMIT_PREFIX:      "rl_",    
-  REPLAY_PREFIX:          "rp_",    
-  VIEWER_IDS:             "viewerIds",    
-  CHILD_IDS:              "childIds",     
-  
-  REWARDS:                "rewards",      
-  REWARD_LOG:             "rewardLog",    
-  REWARD_PENDING:         "rewardPending",
-  REWARD_CONFIG:          "rewardConfig", 
+// 1. 用户角色定义 (针对 memberships 表)
+export const USER_ROLES = {
+  SUPERADMIN: 'superadmin', // 家庭创建者：拥有最高权限（解散家庭、成员管理、配置修改）
+  ADMIN: 'admin',           // 管理员（家长）：可进行积分操作、规则管理、奖励审批
+  VIEWER: 'viewer',         // 观察者：仅可查看积分数据和历史记录，无权修改
+  CHILD: 'child'            // 孩子主体：仅能查看个人积分、成就和发起兑换申请
 };
 
-// ── 冷却与限流 ──
-export const RATE_LIMIT_FAST_MS = 10_000;   // 10s：加减分等快速操作
-export const RATE_LIMIT_SLOW_MS = 60_000;   // 60s：规则/孩子/目标/配置等管理操作
-export const RATE_LIMIT_KV_TTL  = 300;      // 5分钟
-export const REPLAY_TTL         = 3600;     // 防重放 nonce 存 1 小时
-export const INIT_DATA_MAX_AGE  = 3600;     // initData auth_date 有效期 1 小时
-
-// 兼容旧引用
-export const RATE_LIMIT_FAST = 60;
-export const RATE_LIMIT_SLOW = 120;
-export const RATE_LIMIT_TTL  = 60;
-
-// /api/history?all=1 返回上限
-export const HISTORY_ALL_LIMIT = 200;
-
-// ── 核心业务枚举 ──
-export const ROLE = {
-  ADMIN:  "admin",   // 管理员（家长）
-  CHILD:  "child",   // 孩子账号
-  VIEWER: "viewer",  // 只读白名单
-  NONE:   "none",    // 未授权
+// 2. 身份认证平台 (针对 auth_bindings 表)
+export const AUTH_PROVIDERS = {
+  TELEGRAM: 'telegram',     // Telegram Mini App 接入
+  WECHAT: 'wechat',         // 微信小程序接入
+  LARK: 'feishu',           // 飞书/Lark 接入
+  EMAIL: 'email',           // 邮箱 + JWT 登录
+  DEVICE: 'device'          // 孩子端特定设备长效绑定 Token
 };
 
-export const CHILD_COLORS = [
-  "🔴", "🔵", "🟢", "🟡", "🟠", "🟣", "⚫", "⚪",
-];
+// 3. 积分变动类型
+export const SCORE_TYPES = {
+  PLUS: 'plus',             // 加分
+  MINUS: 'minus'            // 扣分/回退
+};
 
+// 4. 兑换申请状态 (针对 redemptions 表)
+export const REDEEM_STATUS = {
+  PENDING: 'pending',       // 待审批
+  APPROVED: 'approved',     // 已通过 (由管理员手动或规则自动触发)
+  REJECTED: 'rejected',     // 已拒绝
+  COMPLETED: 'completed'    // 已发放/已核销
+};
+
+// 5. 目标与成就状态 (针对 goals/achievements 表)
+export const GOAL_STATUS = {
+  ACTIVE: 'active',         // 进行中
+  COMPLETED: 'completed',   // 已达成
+  EXPIRED: 'expired'        // 已过期 (针对限时目标)
+};
+
+// 6. 异步队列动作类型 (Cloudflare Queues)
+export const QUEUE_ACTIONS = {
+  CHECK_ACHIEVEMENTS: 'CHECK_ACHIEVEMENTS', // 积分变动后触发成就与目标扫描
+  REDEEM_NOTIFY: 'REDEEM_APPROVAL_REQUEST',  // 兑换申请推送通知
+  AUTO_APPROVE: 'REDEEM_AUTO_APPROVED'       // 自动审批成功通知
+};
+
+// 7. Durable Object 交互内部指令
+export const DO_COMMANDS = {
+  ADJUST_SCORE: '/adjust',         // 单笔积分变动
+  BATCH_ADJUST: '/adjust-batch',   // 批量积分变动
+  GET_EVENTS: '/events'            // SSE 实时事件流
+};
+
+// 8. 默认配置与展示兜底
 export const DEFAULT_CONFIG = {
-  children: {
-    child1: { name: "大娃", color: "🔴" },
-    child2: { name: "二娃", color: "🔵" },
-  },
+  TIMEZONE: 'Asia/Shanghai',
+  LOCALE: 'zh-CN',
+  POINT_NAME: '积分',
+  POINT_EMOJI: '🪙',
+  AVATAR_USER: '👤',
+  AVATAR_FAMILY: '🏠',
+  AVATAR_CHILD: '👦'
 };
 
-export const DEFAULT_SCORES = {
-  child1: { gained: 0, spent: 0 },
-  child2: { gained: 0, spent: 0 },
-};
-
-// ── 多语言支持配置 ──
-export const SUPPORTED_LOCALES = ['zh-CN', 'en-US'];
-
-// ── 多语言默认积分规则 ──
-export const DEFAULT_RULES = {
-  'zh-CN': {
-    common: [
-      // 🧹 家务
-      { id: "dr_c01", name: "自己整理玩具",     points:  2, category: "chore",    scope: "common" },
-      { id: "dr_c02", name: "饭前摆碗筷",       points:  1, category: "chore",    scope: "common" },
-      { id: "dr_c03", name: "饭后帮忙收碗",     points:  2, category: "chore",    scope: "common" },
-      { id: "dr_c04", name: "扫地或拖地",       points:  3, category: "chore",    scope: "common" },
-      // ⭐ 好行为
-      { id: "dr_b01", name: "主动问好或说谢谢", points:  1, category: "behavior", scope: "common" },
-      { id: "dr_b02", name: "帮助兄弟姐妹",     points:  3, category: "behavior", scope: "common" },
-      { id: "dr_b03", name: "主动承认错误",     points:  3, category: "behavior", scope: "common" },
-      { id: "dr_b04", name: "安静等待不吵闹",   points:  2, category: "behavior", scope: "common" },
-      // 🚫 违规
-      { id: "dr_v01", name: "打人或推人",       points: -3, category: "violation", scope: "common" },
-      { id: "dr_v02", name: "说谎",             points: -5, category: "violation", scope: "common" },
-      { id: "dr_v03", name: "乱扔东西",         points: -2, category: "violation", scope: "common" },
-    ],
-    children: {
-      child1: [ // 小学生专属
-        { id: "dr_p01", name: "按时完成作业",     points:  3, category: "homework",  scope: "child1" },
-        { id: "dr_p02", name: "作业全对或满分",   points:  5, category: "homework",  scope: "child1" },
-        { id: "dr_p03", name: "主动预习或复习",   points:  4, category: "homework",  scope: "child1" },
-        { id: "dr_p04", name: "课外阅读30分钟",   points:  3, category: "homework",  scope: "child1" },
-        { id: "dr_p05", name: "考试成绩进步",     points:  8, category: "behavior",  scope: "child1" },
-        { id: "dr_p06", name: "忘带作业或文具",   points: -2, category: "violation", scope: "child1" },
-        { id: "dr_p07", name: "上课不认真听讲",   points: -3, category: "violation", scope: "child1" },
-      ],
-      child2: [ // 幼儿园专属
-        { id: "dr_k01", name: "自己穿衣服",       points:  2, category: "chore",    scope: "child2" },
-        { id: "dr_k02", name: "自己穿鞋",         points:  1, category: "chore",    scope: "child2" },
-        { id: "dr_k03", name: "午睡乖乖睡着",     points:  2, category: "behavior", scope: "child2" },
-        { id: "dr_k04", name: "不挑食吃完饭",     points:  3, category: "behavior", scope: "child2" },
-        { id: "dr_k05", name: "自己刷牙洗脸",     points:  2, category: "behavior", scope: "child2" },
-        { id: "dr_k06", name: "乱发脾气哭闹",     points: -2, category: "violation", scope: "child2" },
-        { id: "dr_k07", name: "不午睡乱跑",       points: -2, category: "violation", scope: "child2" },
-      ],
-    },
-  },
-  'en-US': {
-    common: [
-      // 🧹 Chores
-      { id: "dr_c01", name: "Clean up toys",              points:  2, category: "chore",    scope: "common" },
-      { id: "dr_c02", name: "Set table before meals",     points:  1, category: "chore",    scope: "common" },
-      { id: "dr_c03", name: "Clear table after meals",    points:  2, category: "chore",    scope: "common" },
-      { id: "dr_c04", name: "Sweep or mop the floor",     points:  3, category: "chore",    scope: "common" },
-      // ⭐ Good Behaviors
-      { id: "dr_b01", name: "Say hello or thank you",     points:  1, category: "behavior", scope: "common" },
-      { id: "dr_b02", name: "Help siblings",              points:  3, category: "behavior", scope: "common" },
-      { id: "dr_b03", name: "Admit mistakes honestly",    points:  3, category: "behavior", scope: "common" },
-      { id: "dr_b04", name: "Wait quietly/patiently",     points:  2, category: "behavior", scope: "common" },
-      // 🚫 Violations
-      { id: "dr_v01", name: "Hitting or pushing",         points: -3, category: "violation", scope: "common" },
-      { id: "dr_v02", name: "Lying",                      points: -5, category: "violation", scope: "common" },
-      { id: "dr_v03", name: "Throwing things around",     points: -2, category: "violation", scope: "common" },
-    ],
-    children: {
-      child1: [ // Primary School
-        { id: "dr_p01", name: "Finish homework on time",  points:  3, category: "homework",  scope: "child1" },
-        { id: "dr_p02", name: "Perfect homework score",   points:  5, category: "homework",  scope: "child1" },
-        { id: "dr_p03", name: "Preview/Review lessons",   points:  4, category: "homework",  scope: "child1" },
-        { id: "dr_p04", name: "Read for 30 minutes",      points:  3, category: "homework",  scope: "child1" },
-        { id: "dr_p05", name: "Improve test scores",      points:  8, category: "behavior",  scope: "child1" },
-        { id: "dr_p06", name: "Forgot homework/supplies", points: -2, category: "violation", scope: "child1" },
-        { id: "dr_p07", name: "Not paying attention",     points: -3, category: "violation", scope: "child1" },
-      ],
-      child2: [ // Kindergarten
-        { id: "dr_k01", name: "Dress oneself",            points:  2, category: "chore",    scope: "child2" },
-        { id: "dr_k02", name: "Put on shoes",             points:  1, category: "chore",    scope: "child2" },
-        { id: "dr_k03", name: "Sleep nicely during nap",  points:  2, category: "behavior", scope: "child2" },
-        { id: "dr_k04", name: "Finish meal (no picky)",   points:  3, category: "behavior", scope: "child2" },
-        { id: "dr_k05", name: "Brush teeth & wash face",  points:  2, category: "behavior", scope: "child2" },
-        { id: "dr_k06", name: "Throw tantrums/crying",    points: -2, category: "violation", scope: "child2" },
-        { id: "dr_k07", name: "Running around at nap",    points: -2, category: "violation", scope: "child2" },
-      ],
-    },
-  }
+// 9. 全局错误码 (需与 errorCode.md 保持同步)
+export const ERROR_CODES = {
+  // 鉴权类
+  UNAUTHORIZED: 'ERR_UNAUTHORIZED',
+  FORBIDDEN: 'ERR_FORBIDDEN',
+  USER_NOT_FOUND: 'ERR_USER_NOT_FOUND',
+  FAMILY_CONTEXT_MISSING: 'ERR_FAMILY_CONTEXT_MISSING',
+  
+  // 业务类
+  DAILY_LIMIT: 'ERR_DAILY_LIMIT_REACHED',
+  INSUFFICIENT_POINTS: 'ERR_INSUFFICIENT_POINTS',
+  INVALID_INVITE: 'ERR_INVALID_INVITE',
+  ALREADY_BOUND: 'ERR_ALREADY_BOUND',
+  
+  // 系统类
+  NOT_FOUND: 'ERR_NOT_FOUND',
+  SYSTEM_ERROR: 'ERR_SYSTEM_ERROR'
 };
