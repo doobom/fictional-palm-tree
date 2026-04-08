@@ -22,14 +22,14 @@ declare global {
           hash: string;
         };
         
-        // 2. 环境信息 (新增 version)
+        // 2. 环境信息
         version: string;
         platform: string;
         colorScheme: 'light' | 'dark';
         headerColor: string;
         backgroundColor: string;
         
-        // 3. 原生 UI 组件 (新增 MainButton 和 BackButton)
+        // 3. 原生 UI 组件
         MainButton: {
           text: string;
           color: string;
@@ -56,10 +56,22 @@ declare global {
           hide: () => void;
         };
 
-        // 4. 方法与事件
+        // 4. 基础方法与事件
         ready: () => void;
         expand: () => void;
         close: () => void;
+        
+        // 🌟 新增：高级 UI 与全屏控制 API
+        requestFullscreen: () => void;
+        disableVerticalSwipes: () => void;
+        setHeaderColor: (color: string) => void;
+        setBackgroundColor: (color: string) => void;
+        
+        // 🌟 链接跳转
+        openTelegramLink: (url: string) => void;
+        openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
+
+        // 5. 触感与数据传输
         HapticFeedback: {
           impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
           notificationOccurred: (type: 'error' | 'success' | 'warning') => void;

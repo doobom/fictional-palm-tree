@@ -10,11 +10,17 @@ const auth = new Hono();
  * 逻辑：创建家庭 -> 创建/更新用户 -> 建立 superadmin 成员关系
  */
 auth.post('/create-family', async (c) => {
-  const platform = c.get('platform'); // 来自 platformAuth 中间件
+  // 🌟 核心修复：从上下文获取 'auth' 而不是 'platform'
+  const authData = c.get('auth'); 
   const { familyName, nickName, avatar } = await c.req.json();
 
   if (!familyName || !nickName) {
     return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
+  }
+
+  // 安全校验：确保中间件成功传递了身份信息
+  if (!authData || !authData.provider) {
+    return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: '未获取到有效的授权身份' }, 401);
   }
 
   const familyId = nanoid(10);
@@ -31,9 +37,9 @@ auth.post('/create-family', async (c) => {
       // 建立成员关系 (设置为超级管理员)
       c.env.DB.prepare(`INSERT INTO memberships (id, family_id, user_id, role) VALUES (?, ?, ?, 'superadmin')`)
         .bind(membershipId, familyId, userId),
-      // 建立当前平台的账号绑定
+      // 🌟 核心修复：使用 authData.provider
       c.env.DB.prepare(`INSERT INTO auth_bindings (id, internal_id, user_type, provider, provider_uid) VALUES (?, ?, 'parent', ?, ?)` )
-        .bind(bindingId, userId, platform.provider, platform.providerUid)
+        .bind(bindingId, userId, authData.provider, authData.providerUid)
     ]);
 
     return c.json({ success: true, familyId, userId });
@@ -48,8 +54,13 @@ auth.post('/create-family', async (c) => {
  * 逻辑：验证码有效性 -> 在 memberships 中建立关联
  */
 auth.post('/join-family', async (c) => {
-  const platform = c.get('platform');
+  // 🌟 核心修复：从上下文获取 'auth' 而不是 'platform'
+  const authData = c.get('auth');
   const { inviteCode, nickName } = await c.req.json();
+
+  if (!authData || !authData.provider) {
+    return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED' }, 401);
+  }
 
   // 1. 校验邀请码
   const invite = await c.env.DB.prepare(`
@@ -64,7 +75,7 @@ auth.post('/join-family', async (c) => {
   let userId;
   const existingBinding = await c.env.DB.prepare(`
     SELECT internal_id FROM auth_bindings WHERE provider = ? AND provider_uid = ?
-  `).bind(platform.provider, platform.providerUid).first();
+  `).bind(authData.provider, authData.providerUid).first();
 
   if (existingBinding) {
     userId = existingBinding.internal_id;
@@ -73,8 +84,9 @@ auth.post('/join-family', async (c) => {
     // 如果是全新用户，先创建用户和绑定记录
     await c.env.DB.batch([
       c.env.DB.prepare(`INSERT INTO users (id, nick_name) VALUES (?, ?)`).bind(userId, nickName || '新成员'),
+      // 🌟 核心修复：使用 authData.provider
       c.env.DB.prepare(`INSERT INTO auth_bindings (id, internal_id, user_type, provider, provider_uid) VALUES (?, ?, 'parent', ?, ?)` )
-        .bind(nanoid(12), userId, platform.provider, platform.providerUid)
+        .bind(nanoid(12), userId, authData.provider, authData.providerUid)
     ]);
   }
 
@@ -88,19 +100,17 @@ auth.post('/join-family', async (c) => {
 
     return c.json({ success: true, familyId: invite.family_id });
   } catch (error) {
+    console.error(`[Auth Error] Join family failed:`, error);
     return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
   }
 });
 
 /**
  * 3. 绑定新平台 (多平台关联核心)
- * 场景：已登录用户在设置中点击“绑定 Telegram”
  */
 auth.post('/bind-platform', async (c) => {
-  const user = c.get('user'); // 必须已登录
+  const user = c.get('user'); // 此处不需要改，正常走 requireAppUser 的 user
   const { newProvider, newProviderUid, signature } = await c.req.json();
-
-  // 此处应包含对第三方平台签名的二次校验逻辑 (verifyTelegramData 等)
   
   try {
     await c.env.DB.prepare(`
@@ -110,7 +120,6 @@ auth.post('/bind-platform', async (c) => {
 
     return c.json({ success: true });
   } catch (error) {
-    // 如果该平台账号已被其他 internal_id 绑定，会触发 UNIQUE 约束失败
     return c.json({ success: false, errorCode: 'ERR_ALREADY_BOUND' }, 400);
   }
 });
@@ -133,7 +142,6 @@ auth.post('/generate-invite', async (c) => {
     VALUES (?, ?, ?, ?)
   `).bind(code, user.familyId, type || 'admin', expiresAt).run();
 
-  // 获取机器人用户名以生成 TG 链接
   const botUsername = c.env.BOT_USERNAME || 'FamilyPointsBot';
   const inviteLink = `https://t.me/${botUsername}/app?startapp=${code}`;
 

@@ -41,46 +41,31 @@ family.get('/config', async (c) => {
  */
 family.put('/config', async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
-
+  
+  // 权限校验
   if (user.role !== 'admin' && user.role !== 'superadmin') {
-    return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
+    return c.json({ success: false, errorCode: 'ERR_FORBIDDEN', errorMessage: '没有修改权限' }, 403);
   }
 
-  const { 
-    name, avatar, timezone, 
-    point_name, point_emoji, 
-    push_enabled, push_time, push_options,
-    instant_alert_enabled 
-  } = body;
+  const { name, point_name, point_emoji, avatar } = await c.req.json();
 
   try {
+    // 动态更新家庭信息
     await c.env.DB.prepare(`
-      UPDATE families SET 
-        name = COALESCE(?, name),
-        avatar = COALESCE(?, avatar),
-        timezone = COALESCE(?, timezone),
-        point_name = COALESCE(?, point_name),
-        point_emoji = COALESCE(?, point_emoji),
-        push_enabled = COALESCE(?, push_enabled),
-        push_time = COALESCE(?, push_time),
-        push_options = COALESCE(?, push_options),
-        instant_alert_enabled = COALESCE(?, instant_alert_enabled)
+      UPDATE families 
+      SET name = COALESCE(?, name), 
+          point_name = COALESCE(?, point_name), 
+          point_emoji = COALESCE(?, point_emoji),
+          avatar = COALESCE(?, avatar)
       WHERE id = ?
-    `).bind(
-      name, avatar, timezone, 
-      point_name, point_emoji, 
-      push_enabled, push_time, push_options,
-      instant_alert_enabled, 
-      user.familyId
-    ).run();
+    `).bind(name, point_name, point_emoji, avatar, user.familyId).run();
 
     return c.json({ success: true });
   } catch (error) {
+    console.error(`[Family Error] Update config failed:`, error);
     return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
   }
 });
-
 /**
  * 3. 修改成员角色 (仅限超级管理员)
  * 逻辑：操作 memberships 表

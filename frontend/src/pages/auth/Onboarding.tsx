@@ -11,11 +11,9 @@ const Onboarding: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { setUserInfo, telegramInitData } = useUserStore();
 
-  // 状态管理：是在创建还是在加入
   const [mode, setMode] = useState<'create' | 'join'>('join');
   const [loading, setLoading] = useState(false);
   
-  // 表单字段
   const [formData, setFormData] = useState({
     familyName: '',
     nickName: '',
@@ -23,9 +21,7 @@ const Onboarding: React.FC = () => {
     avatar: '👤'
   });
 
-  // 自动从 URL 或 TG 启动参数中读取邀请码
   useEffect(() => {
-    // 优先读取 Telegram 传入的 startapp 参数
     const tgStartParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
     const urlInviteCode = searchParams.get('code');
     
@@ -50,89 +46,103 @@ const Onboarding: React.FC = () => {
       if (res.success) {
         appToast.success(mode === 'create' ? '家庭创建成功！' : '成功加入家庭！');
         
-        // 重新获取完整的用户信息和家庭列表以刷新 Store
         const userRes = await service.get<any, ApiResponse<UserInfo>>('/user/me');
         if (userRes.success) {
           setUserInfo(userRes.data);
-          navigate('/parent'); // 跳转至家长主页
+          navigate('/parent'); 
         }
       }
     } catch (err: any) {
-      // 错误已由拦截器处理
+      // 错误由拦截器处理
     } finally {
       setLoading(false);
     }
   };
 
+  // 🌟 核心修改：赋予 Onboarding 与 AuthPage 完全一致的全屏带暗黑模式布局
   return (
-    <div className="onboarding-container p-6 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-center">
-        {mode === 'create' ? '✨ 创建您的新家庭' : '🏠 加入现有家庭'}
-      </h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 py-8 flex flex-col justify-center overflow-y-auto">
+      <div className="max-w-md w-full mx-auto bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-6 sm:p-8 space-y-6 my-auto animate-fade-in">
+        
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          {mode === 'create' ? '✨ 创建新家庭' : '🏠 加入现有家庭'}
+        </h1>
 
-      <div className="flex mb-8 bg-gray-100 p-1 rounded-lg">
-        <button 
-          className={`flex-1 py-2 rounded-md ${mode === 'join' ? 'bg-white shadow' : ''}`}
-          onClick={() => setMode('join')}
-        >
-          加入家庭
-        </button>
-        <button 
-          className={`flex-1 py-2 rounded-md ${mode === 'create' ? 'bg-white shadow' : ''}`}
-          onClick={() => setMode('create')}
-        >
-          创建家庭
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* 公共字段：您的昵称 */}
-        <div>
-          <label className="block text-sm font-medium mb-1">您的昵称</label>
-          <input 
-            type="text" 
-            required
-            className="w-full p-3 border rounded-lg"
-            value={formData.nickName}
-            onChange={(e) => setFormData({...formData, nickName: e.target.value})}
-            placeholder="例如：爸爸、妈妈"
-          />
+        {/* 导航切换按钮 */}
+        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
+          <button 
+            type="button"
+            className={`flex-1 py-3 rounded-lg font-bold transition-all ${
+              mode === 'join' 
+                ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+            onClick={() => setMode('join')}
+          >
+            加入家庭
+          </button>
+          <button 
+            type="button"
+            className={`flex-1 py-3 rounded-lg font-bold transition-all ${
+              mode === 'create' 
+                ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+            onClick={() => setMode('create')}
+          >
+            创建家庭
+          </button>
         </div>
 
-        {mode === 'create' ? (
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-1">家庭名称</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">您的昵称</label>
             <input 
               type="text" 
               required
-              className="w-full p-3 border rounded-lg"
-              value={formData.familyName}
-              onChange={(e) => setFormData({...formData, familyName: e.target.value})}
-              placeholder="例如：快乐的一家人"
+              className="w-full p-4 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              value={formData.nickName}
+              onChange={(e) => setFormData({...formData, nickName: e.target.value})}
+              placeholder="例如：爸爸、妈妈"
             />
           </div>
-        ) : (
-          <div>
-            <label className="block text-sm font-medium mb-1">8位邀请码</label>
-            <input 
-              type="text" 
-              required
-              className="w-full p-3 border rounded-lg font-mono uppercase"
-              value={formData.inviteCode}
-              onChange={(e) => setFormData({...formData, inviteCode: e.target.value.toUpperCase()})}
-              placeholder="请输入邀请码"
-            />
-          </div>
-        )}
 
-        <button 
-          disabled={loading}
-          type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mt-4 disabled:opacity-50"
-        >
-          {loading ? '处理中...' : (mode === 'create' ? '立即创建' : '立即加入')}
-        </button>
-      </form>
+          {mode === 'create' ? (
+            <div>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">家庭名称</label>
+              <input 
+                type="text" 
+                required
+                className="w-full p-4 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                value={formData.familyName}
+                onChange={(e) => setFormData({...formData, familyName: e.target.value})}
+                placeholder="例如：快乐的一家人"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">8位邀请码</label>
+              <input 
+                type="text" 
+                required
+                className="w-full p-4 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-mono uppercase text-lg tracking-widest text-center focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                value={formData.inviteCode}
+                onChange={(e) => setFormData({...formData, inviteCode: e.target.value.toUpperCase()})}
+                placeholder="ABCDEF12"
+                maxLength={8}
+              />
+            </div>
+          )}
+
+          <button 
+            disabled={loading}
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 mt-2"
+          >
+            {loading ? '处理中...' : (mode === 'create' ? '立即创建' : '立即加入')}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
