@@ -1,4 +1,4 @@
-// src/routes/children.js
+// backend/src/routes/children.js
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 
@@ -6,15 +6,16 @@ const children = new Hono();
 
 /**
  * 1. 获取当前家庭的所有孩子列表
- * 逻辑：基于 Header 中的 x-family-id 进行过滤
  */
 children.get('/', async (c) => {
-  const user = c.get('user'); // 来自 requireAppUser 中间件
+  const user = c.get('user'); 
   
   try {
+    // 🌟 核心修复：加入 birthday 字段，并使用 COALESCE 防止 NULL 值计算报错
     const { results } = await c.env.DB.prepare(`
-      SELECT id, name, avatar, score_gained, score_spent, 
-             (score_gained - score_spent) as balance, created_at
+      SELECT id, name, avatar, birthday, score_gained, score_spent, 
+             (COALESCE(score_gained, 0) - COALESCE(score_spent, 0)) as balance, 
+             created_at
       FROM children 
       WHERE family_id = ?
       ORDER BY created_at ASC
@@ -22,8 +23,8 @@ children.get('/', async (c) => {
 
     return c.json({ success: true, data: results });
   } catch (error) {
-    console.error(`[DB Error] Fetch children failed:`, error);
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
+    console.error(`[DB Error] Fetch children failed:`, error.message);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: error.message }, 500);
   }
 });
 
@@ -32,7 +33,7 @@ children.get('/', async (c) => {
  */
 children.post('/', async (c) => {
   const user = c.get('user');
-  const { name, avatar } = await c.req.json();
+  const { name, avatar, birthday } = await c.req.json();
 
   if (user.role !== 'admin' && user.role !== 'superadmin') {
     return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
@@ -45,14 +46,16 @@ children.post('/', async (c) => {
   const childId = nanoid(10);
 
   try {
+    // 🌟 确保插入时包含 birthday
     await c.env.DB.prepare(`
-      INSERT INTO children (id, family_id, name, avatar)
-      VALUES (?, ?, ?, ?)
-    `).bind(childId, user.familyId, name, avatar || '👦').run();
+      INSERT INTO children (id, family_id, name, avatar, birthday, score_gained, score_spent)
+      VALUES (?, ?, ?, ?, ?, 0, 0)
+    `).bind(childId, user.familyId, name, avatar || '👦', birthday || null).run();
 
-    return c.json({ success: true, data: { id: childId, name } });
+    return c.json({ success: true, data: { id: childId, name, avatar, birthday, balance: 0 } });
   } catch (error) {
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
+    console.error(`[DB Error] Add child failed:`, error.message);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: error.message }, 500);
   }
 });
 
@@ -65,7 +68,11 @@ children.get('/:id', async (c) => {
 
   try {
     const child = await c.env.DB.prepare(`
-      SELECT * FROM children WHERE id = ? AND family_id = ?
+      SELECT id, name, avatar, birthday, score_gained, score_spent, 
+             (COALESCE(score_gained, 0) - COALESCE(score_spent, 0)) as balance, 
+             created_at
+      FROM children 
+      WHERE id = ? AND family_id = ?
     `).bind(childId, user.familyId).first();
 
     if (!child) {
@@ -82,7 +89,8 @@ children.get('/:id', async (c) => {
       data: { ...child, achievementCount: achCount || 0 } 
     });
   } catch (error) {
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
+    console.error(`[DB Error] Fetch child detail failed:`, error.message);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: error.message }, 500);
   }
 });
 
@@ -92,17 +100,21 @@ children.get('/:id', async (c) => {
 children.put('/:id', async (c) => {
   const user = c.get('user');
   const childId = c.req.param('id');
-  const { name, avatar } = await c.req.json();
+  const { name, avatar, birthday } = await c.req.json();
 
   if (user.role !== 'admin' && user.role !== 'superadmin') {
     return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
   }
 
   try {
+    // 🌟 更新时加入 birthday 字段
     const result = await c.env.DB.prepare(`
-      UPDATE children SET name = COALESCE(?, name), avatar = COALESCE(?, avatar)
+      UPDATE children 
+      SET name = COALESCE(?, name), 
+          avatar = COALESCE(?, avatar),
+          birthday = COALESCE(?, birthday)
       WHERE id = ? AND family_id = ?
-    `).bind(name, avatar, childId, user.familyId).run();
+    `).bind(name, avatar, birthday || null, childId, user.familyId).run();
 
     if (result.meta.changes === 0) {
       return c.json({ success: false, errorCode: 'ERR_NOT_FOUND' }, 404);
@@ -110,7 +122,8 @@ children.put('/:id', async (c) => {
 
     return c.json({ success: true });
   } catch (error) {
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
+    console.error(`[DB Error] Update child failed:`, error.message);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: error.message }, 500);
   }
 });
 

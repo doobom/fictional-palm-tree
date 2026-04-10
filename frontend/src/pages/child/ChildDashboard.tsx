@@ -2,101 +2,82 @@
 import React, { useEffect, useState } from 'react';
 import { useUserStore } from '../../store';
 import { usePlatformApp } from '../../hooks/usePlatformApp';
-import service, { ApiResponse } from '../../api/request'; // 🌟 导入 ApiResponse 泛型
-import { appToast } from '../../utils/toast'; // 🌟 统一使用 appToast
+import service, { ApiResponse } from '../../api/request'; 
+import { appToast } from '../../utils/toast';
 
-// 1. 修复接口定义：移除 extends any，直接定义清晰的数据结构
 export interface ChildDetail {
   id: string;
   name: string;
   avatar: string;
   balance: number;
   achievementCount: number;
-  // 如果后端还会返回其他未知字段，可以使用索引签名保留扩展性
   [key: string]: any; 
 }
 
 const ChildDashboard: React.FC = () => {
-  // 2. 从全局 Store 获取当前上下文
   const { currentFamilyId, families, user } = useUserStore();
-  const { triggerImpact } = usePlatformApp(); // 触感反馈
+  const { triggerImpact } = usePlatformApp(); 
   
   const [data, setData] = useState<ChildDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 获取当前家庭的个性化配置 (如积分名称、Emoji)
   const currentFamily = families.find(f => f.id === currentFamilyId);
 
-  // 3. 监听家庭切换，拉取当前家庭下的孩子数据
   useEffect(() => {
-    // 确保 user 存在且当前有选中的家庭
-    if (currentFamilyId && user?.id) {
-      fetchChildData();
-    }
+    if (currentFamilyId && user?.id) fetchChildData();
   }, [currentFamilyId, user?.id]);
 
   const fetchChildData = async () => {
     setLoading(true);
     try {
-      // 🌟 严格指定泛型，消除 res.success 报错
-      // 拦截器会自动注入 x-family-id，后端会校验该 user.id 在该家庭下的数据
       const res = await service.get<any, ApiResponse<ChildDetail>>(`/children/${user?.id}`);
-      
-      if (res.success) {
-        setData(res.data);
-      }
+      if (res.success) setData(res.data);
     } catch (err) {
-      // 报错已由 api/request.ts 拦截器统一处理并 toast
       console.error('Failed to fetch child data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * 4. 模拟发起兑换申请/前往商城
-   */
   const handleRedeemRequest = () => {
-    triggerImpact('heavy'); // 兑换时的重度震动反馈，增强沉浸感
-    appToast.info('正在为您打开奖品商店...'); // 🌟 使用 appToast
-    // window.location.hash = '#/child/rewards';
+    triggerImpact('heavy'); 
+    appToast.info('正在为您打开奖品商店...'); 
+    window.location.hash = '#/child/rewards'; // 放开注释，允许跳转
   };
 
-  // 骨架屏或加载提示
   if (loading && !data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 pb-20">
+      // 🌟 加载页暗黑适配
+      <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 dark:bg-gray-900 pb-20 transition-colors duration-300">
         <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-blue-500 font-bold animate-pulse">正在进入您的专属乐园...</p>
+        <p className="text-blue-500 dark:text-blue-400 font-bold animate-pulse">正在进入您的专属乐园...</p>
       </div>
     );
   }
 
   return (
     <div 
-      className="child-dashboard bg-gradient-to-b from-blue-50 to-white min-h-screen px-4 pb-24"
-      // 🌟 核心修复：增加顶部安全隔离区 (原生边距 + 额外 1rem 留白)
-      style={{ paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))' }}
+      // 🌟 背景渐变暗黑适配
+      className="child-dashboard bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 min-h-screen px-4 pb-24 transition-colors duration-300"
+      style={{ paddingTop: 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 16px)' }}
     >
       {/* 1. 个人资料与积分卡片 */}
-      <section className="relative bg-white rounded-3xl p-6 shadow-xl shadow-blue-100 mb-6 overflow-hidden">
-        {/* ... 后面的代码保持完全不变 ... */}
-        {/* 背景装饰 Emoji */}
+      <section className="relative bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-xl shadow-blue-100 dark:shadow-none mb-6 overflow-hidden transition-colors duration-300">
         <div className="absolute -top-4 -right-4 p-4 opacity-10 text-8xl transform rotate-12">
           {currentFamily?.point_emoji || '🪙'}
         </div>
         
         <div className="flex items-center gap-4 mb-6 relative z-10">
-          <div className="text-5xl p-3 bg-yellow-50 border-2 border-yellow-100 rounded-2xl shadow-sm">
+          <div className="text-5xl p-3 bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-100 dark:border-yellow-900/50 rounded-2xl shadow-sm transition-colors">
             {data?.avatar || '👦'}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Hi, {data?.name}!</h1>
-            <p className="text-gray-500 text-sm">{currentFamily?.name} 的小勇士</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 transition-colors">Hi, {data?.name}!</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm transition-colors">{currentFamily?.name} 的小勇士</p>
           </div>
         </div>
 
-        <div className="bg-blue-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-300 relative z-10">
+        <div className="bg-blue-600 dark:bg-blue-500 rounded-2xl p-5 text-white shadow-lg shadow-blue-300 dark:shadow-none relative z-10 transition-colors">
           <p className="text-blue-100 text-sm font-medium mb-1">我的当前可用{currentFamily?.point_name || '积分'}</p>
           <div className="flex items-baseline gap-2">
             <span className="text-5xl font-black tracking-tight">{data?.balance || 0}</span>
@@ -107,24 +88,24 @@ const ChildDashboard: React.FC = () => {
 
       {/* 2. 统计概览 */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 text-center shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 text-center shadow-sm transition-colors duration-300">
           <p className="text-3xl mb-2">🏆</p>
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">已获成就</p>
-          <p className="text-2xl font-black text-gray-800 mt-1">{data?.achievementCount || 0}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider transition-colors">已获成就</p>
+          <p className="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1 transition-colors">{data?.achievementCount || 0}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 text-center shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 text-center shadow-sm transition-colors duration-300">
           <p className="text-3xl mb-2">🎁</p>
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">心愿清单</p>
-          <p className="text-2xl font-black text-gray-800 mt-1">3</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider transition-colors">心愿清单</p>
+          <p className="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1 transition-colors">3</p>
         </div>
       </div>
 
       {/* 3. 快捷行动区 */}
-      <h3 className="font-bold text-gray-700 mb-3 px-1 text-lg">快速行动</h3>
+      <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-3 px-1 text-lg transition-colors">快速行动</h3>
       <div className="grid gap-4">
         <button 
           onClick={handleRedeemRequest}
-          className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white p-4 rounded-2xl font-bold flex items-center justify-between transition-all active:scale-95 shadow-lg shadow-orange-200"
+          className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 dark:from-orange-500 dark:to-orange-600 text-white p-4 rounded-2xl font-bold flex items-center justify-between transition-all active:scale-95 shadow-lg shadow-orange-200 dark:shadow-none"
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl bg-white/20 p-2 rounded-xl">🛍️</span>
@@ -135,19 +116,19 @@ const ChildDashboard: React.FC = () => {
 
         <button 
           onClick={() => appToast.info('开发中，敬请期待！')}
-          className="w-full bg-white border-2 border-gray-100 p-4 rounded-2xl font-bold flex items-center justify-between text-gray-700 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+          className="w-full bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 p-4 rounded-2xl font-bold flex items-center justify-between text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95 shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl bg-gray-50 p-2 rounded-xl">📈</span>
+            <span className="text-2xl bg-gray-50 dark:bg-gray-700 p-2 rounded-xl transition-colors">📈</span>
             <span className="text-lg">查看积分成长轨迹</span>
           </div>
-          <span className="text-gray-300 text-xl">→</span>
+          <span className="text-gray-300 dark:text-gray-500 text-xl transition-colors">→</span>
         </button>
       </div>
 
       {/* 4. 底部鼓励语 */}
       <div className="mt-10 flex justify-center">
-        <p className="text-center text-gray-400 text-xs italic bg-white/50 px-4 py-2 rounded-full inline-block">
+        <p className="text-center text-gray-400 dark:text-gray-500 text-xs italic bg-white/50 dark:bg-gray-800/50 px-4 py-2 rounded-full inline-block transition-colors">
           ✨ 继续加油！再获得 50 {currentFamily?.point_name || '积分'} 就能兑换惊喜啦！
         </p>
       </div>

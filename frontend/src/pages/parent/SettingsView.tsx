@@ -1,13 +1,12 @@
 // frontend/src/pages/parent/SettingsView.tsx
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useUserStore, Child } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
 import { VERSION_INFO } from '../../version';
 import { SUPPORTED_LANGUAGES } from '../../locales/index';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast'; // 🌟 用于 loading 提示
+import toast from 'react-hot-toast';
 
 import BottomDrawer from '../../components/BottomDrawer';
 import Section from '../../components/Section';
@@ -16,7 +15,7 @@ import CategoryManagerDrawer from './CategoryManagerDrawer';
 import { 
   Settings, Baby, ShieldCheck, Copy, Smartphone, Plus, 
   UserCircle, Tags, Trash2, HelpCircle, Info, MessageSquare, ChevronRight, 
-  Globe, Calendar, MapPin, Edit3, Sun, Moon, X, Check, Globe2
+  Globe, Calendar, MapPin, Edit3, Sun 
 } from 'lucide-react'; 
 
 export default function SettingsView() {
@@ -27,12 +26,20 @@ export default function SettingsView() {
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
+  // 主题偏好
+  const [themePref, setThemePref] = useState(localStorage.getItem('app_theme') || 'auto');
+  const handleThemeChange = (newTheme: string) => {
+    setThemePref(newTheme);
+    localStorage.setItem('app_theme', newTheme);
+    window.dispatchEvent(new Event('theme-updated')); 
+  };
+
   const [userProfile, setUserProfile] = useState<{nick_name: string, avatar: string, id: string | number, locale?: string} | null>(null);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [profileData, setProfileData] = useState({ 
     nick_name: tgUser ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : '', 
     avatar: '🧑', 
-    locale: tgUser?.language_code || 'zh-CN' // 🌟 映射为 locale
+    locale: tgUser?.language_code || 'zh-CN'
   });
 
   const [config, setConfig] = useState<any>(null);
@@ -54,40 +61,10 @@ export default function SettingsView() {
   const myRole = families.find(f => f.id === currentFamilyId)?.role;
   const isAdmin = myRole === 'admin' || myRole === 'superadmin';
 
-  // 🌟 新增：读取本地缓存的主题偏好，默认为 'auto'
-  const [themePref, setThemePref] = useState(localStorage.getItem('app_theme') || 'auto');
-
-  // 🌟 新增：处理主题切换的函数
-  const handleThemeChange = (newTheme: string) => {
-    setThemePref(newTheme);
-    localStorage.setItem('app_theme', newTheme);
-    // 派发全局事件，通知 App.tsx 瞬间更新 DOM 和顶栏颜色
-    window.dispatchEvent(new Event('theme-updated')); 
-  };
-
-  // 🌟 新增：专门处理 Telegram 原生下拉行为的 useEffect
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg && tg.disableVerticalSwipes) {
-      // 进入设置页时，禁用原生的垂直下拉 (彻底解决下拉黑边和误触关闭)
-      try { tg.disableVerticalSwipes(); } catch (e) {}
-    }
-
-    // 可选：如果你希望离开设置页时恢复下拉，就加上这句 return
-    /*
-    return () => {
-      if (tg && tg.enableVerticalSwipes) {
-        try { tg.enableVerticalSwipes(); } catch (e) {}
-      }
-    };
-    */
-  }, []);
-
   useEffect(() => {
     if (currentFamilyId) fetchFamilyData();
     fetchCategories();
     
-    // 🌟 核心修复 1：适配后端的嵌套数据结构 res.data.user
     service.get<any, ApiResponse>('/user/me').then(res => {
       if (res.success && res.data && res.data.user) {
         const u = res.data.user;
@@ -100,6 +77,12 @@ export default function SettingsView() {
       }
     }).catch(() => {});
   }, [currentFamilyId]);
+
+  useEffect(() => {
+    if (inviteModal) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [inviteModal]);
 
   const fetchFamilyData = async () => {
     setLoading(true);
@@ -123,45 +106,18 @@ export default function SettingsView() {
   const handleSaveProfile = async () => {
     if (!profileData.nick_name.trim()) return appToast.warn('昵称不能为空');
     try { 
-      const payload = {
-        nickName: profileData.nick_name,
-        avatar: profileData.avatar,
-        locale: profileData.locale
-      };
-      
+      const payload = { nickName: profileData.nick_name, avatar: profileData.avatar, locale: profileData.locale };
       const res = await service.put<any, ApiResponse>('/user/profile', payload); 
       
       if(res.success){ 
         appToast.success('个人资料已更新'); 
-        
         const currentUserId = userProfile?.id || tgUser?.id || '';
-
-        // 1. 更新顶部的个人资料卡片
-        setUserProfile(prev => ({ 
-          ...prev!, 
-          nick_name: profileData.nick_name, 
-          avatar: profileData.avatar, 
-          locale: profileData.locale, 
-          id: currentUserId 
-        })); 
-
-        // 🌟 2. 核心修复：同步更新“家长成员”列表中的数据
-        setMembers(prevMembers => 
-          prevMembers.map(m => 
-            String(m.id) === String(currentUserId) 
-              ? { ...m, nick_name: profileData.nick_name, avatar: profileData.avatar } 
-              : m
-          )
-        );
-        
-        // 3. 动态切换系统语言
+        setUserProfile(prev => ({ ...prev!, nick_name: profileData.nick_name, avatar: profileData.avatar, locale: profileData.locale, id: currentUserId })); 
+        setMembers(prevMembers => prevMembers.map(m => String(m.id) === String(currentUserId) ? { ...m, nick_name: profileData.nick_name, avatar: profileData.avatar } : m));
         if (i18n && typeof i18n.changeLanguage === 'function') i18n.changeLanguage(profileData.locale);
-        
         setIsProfileDrawerOpen(false); 
       } 
-    } catch(e) { 
-      appToast.error('保存失败，请稍后重试'); 
-    } 
+    } catch(e) { appToast.error('保存失败，请稍后重试'); } 
   };
 
   const handleSaveFamily = async () => {
@@ -191,7 +147,6 @@ export default function SettingsView() {
   };
 
   const handleGenerateCode = async (type: 'admin' | 'child', targetChildId?: string) => {
-    // 🌟 修复 3：调用原生的 loading，配合你在 App.tsx 中配置的彩色样式
     const toastId = toast.loading('正在提取安全凭证...');
     try { 
       const res: any = await service.post('/auth/generate-invite', type === 'child' ? { type: 'child', childId: targetChildId } : { type: 'admin' });
@@ -223,55 +178,55 @@ export default function SettingsView() {
     setTimeout(() => { window.location.reload(); }, 1500);
   };
 
-  const displayNickName = userProfile?.nick_name || '未设置昵称';
-  const displayAvatar = userProfile?.avatar || '🧑';
+  const currentUserMember = members.find(m => String(m.id) === String(userProfile?.id || tgUser?.id));
+  const displayNickName = currentUserMember?.nick_name || userProfile?.nick_name || '未设置昵称';
+  const displayAvatar = currentUserMember?.avatar || userProfile?.avatar || '🧑';
   const currentLangLabel = SUPPORTED_LANGUAGES.find(l => l.code === profileData.locale)?.label || '简体中文';
 
-  if (loading && !config) return <div className="p-10 text-center text-gray-500 font-bold">加载中...</div>;
+  if (loading && !config) return <div className="p-10 text-center text-gray-500 dark:text-gray-400 font-bold transition-colors">加载中...</div>;
 
   return (
-    <div className="settings-container p-4 pb-32 pt-8 min-h-full bg-gray-50 dark:bg-gray-900 overscroll-none">
+    <div className="settings-container p-4 pb-32 pt-8 min-h-full bg-gray-50 dark:bg-gray-900 overscroll-none transition-colors duration-300">
       
       {/* 1. 个人资料 */}
       <Section title="个人资料" icon={<UserCircle size={22} />} isOpen={openSection === 'profile'} onToggle={() => setOpenSection(openSection === 'profile' ? '' : 'profile' as any)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <span className="text-5xl bg-gray-50 p-2 rounded-2xl shadow-sm border border-gray-100">{displayAvatar}</span>
+            <span className="text-5xl bg-gray-50 dark:bg-gray-700 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-600 transition-colors">{displayAvatar}</span>
             <div>
-              <p className="font-black text-gray-800 text-xl">{displayNickName}</p>
+              <p className="font-black text-gray-800 dark:text-gray-100 text-xl transition-colors">{displayNickName}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-md">ID: {userProfile?.id || tgUser?.id || '未知'}</span>
-                <span className="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-md flex items-center gap-1"><Globe size={12}/> {currentLangLabel}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md transition-colors">ID: {userProfile?.id || tgUser?.id || '未知'}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors"><Globe size={12}/> {currentLangLabel}</span>
               </div>
             </div>
           </div>
-          <button onClick={() => setIsProfileDrawerOpen(true)} className="p-3 bg-blue-50 text-blue-600 rounded-xl active:scale-95 transition-transform"><Edit3 size={20} /></button>
+          <button onClick={() => setIsProfileDrawerOpen(true)} className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl active:scale-95 transition-all"><Edit3 size={20} /></button>
         </div>
       </Section>
 
-      <BottomDrawer isOpen={isProfileDrawerOpen} onClose={() => setIsProfileDrawerOpen(false)} title="编辑个人资料" footer={<button onClick={handleSaveProfile} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98]">保存资料</button>}>
+      <BottomDrawer isOpen={isProfileDrawerOpen} onClose={() => setIsProfileDrawerOpen(false)} title="编辑个人资料" footer={<button onClick={handleSaveProfile} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存资料</button>}>
         <div className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 mb-1">头像</label><input type="text" className="w-full h-14 bg-white rounded-xl border border-gray-200 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none" value={profileData.avatar} onChange={e => setProfileData({...profileData, avatar: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 mb-1">我的昵称</label><input type="text" className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" value={profileData.nick_name} onChange={e => setProfileData({...profileData, nick_name: e.target.value})} placeholder="输入你在家庭中的称呼" /></div>
+            <div className="w-24">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">头像</label>
+              <input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={profileData.avatar} onChange={e => setProfileData({...profileData, avatar: e.target.value})} maxLength={2} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">我的昵称</label>
+              <input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={profileData.nick_name} onChange={e => setProfileData({...profileData, nick_name: e.target.value})} placeholder="输入你在家庭中的称呼" />
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-1"><Globe size={16}/> 语言设置 (Language)</label>
-            <select className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none appearance-none" value={profileData.locale} onChange={e => setProfileData({...profileData, locale: e.target.value})}>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Globe size={16}/> 语言设置 (Language)</label>
+            <select className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-colors" value={profileData.locale} onChange={e => setProfileData({...profileData, locale: e.target.value})}>
               {SUPPORTED_LANGUAGES.map((lang) => (<option key={lang.code} value={lang.code}>{lang.label} ({lang.code})</option>))}
             </select>
           </div>
-          {/* 🌟 新增：外观主题设置 */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-1">
-              <Sun size={16}/> 外观主题 (Theme)
-            </label>
-            <select 
-              className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none appearance-none" 
-              value={themePref} 
-              onChange={e => handleThemeChange(e.target.value)}
-            >
-              <option value="auto">自动 (跟随 Telegram)</option>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Sun size={16}/> 外观主题 (Theme)</label>
+            <select className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-colors" value={themePref} onChange={e => handleThemeChange(e.target.value)}>
+              <option value="auto">自动 (跟随系统或 Telegram)</option>
               <option value="light">浅色模式 (Light)</option>
               <option value="dark">深色模式 (Dark)</option>
             </select>
@@ -282,27 +237,27 @@ export default function SettingsView() {
       {/* 2. 基础设置 */}
       <Section title="基础设置" icon={<Settings size={22} />} isOpen={openSection === 'basic'} onToggle={() => setOpenSection(openSection === 'basic' ? '' : 'basic' as any)}>
         <div className="space-y-4">
-          <div className="flex justify-between items-center py-2 border-b border-gray-50"><span className="text-gray-500 font-medium">家庭名称</span><span className="font-bold text-gray-800 text-lg">{config?.avatar} {config?.name}</span></div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-50"><span className="text-gray-500 font-medium">代币单位</span><span className="font-bold text-gray-800 text-lg">{config?.point_emoji} {config?.point_name}</span></div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-50"><span className="text-gray-500 font-medium">所在区/时区</span><span className="font-bold text-gray-800">{config?.timezone || 'Asia/Shanghai'}</span></div>
-          <div className="flex justify-between items-center py-2"><span className="text-gray-500 font-medium">我的角色</span><span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-black uppercase">{myRole}</span></div>
-          {isAdmin && <button onClick={() => setIsFamilyDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl flex items-center justify-center gap-2"><Edit3 size={18}/> 编辑基础信息</button>}
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors"><span className="text-gray-500 dark:text-gray-400 font-medium">家庭名称</span><span className="font-bold text-gray-800 dark:text-gray-100 text-lg">{config?.avatar} {config?.name}</span></div>
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors"><span className="text-gray-500 dark:text-gray-400 font-medium">代币单位</span><span className="font-bold text-gray-800 dark:text-gray-100 text-lg">{config?.point_emoji} {config?.point_name}</span></div>
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors"><span className="text-gray-500 dark:text-gray-400 font-medium">所在区/时区</span><span className="font-bold text-gray-800 dark:text-gray-100">{config?.timezone || 'Asia/Shanghai'}</span></div>
+          <div className="flex justify-between items-center py-2"><span className="text-gray-500 dark:text-gray-400 font-medium">我的角色</span><span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-black uppercase transition-colors">{myRole}</span></div>
+          {isAdmin && <button onClick={() => setIsFamilyDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"><Edit3 size={18}/> 编辑基础信息</button>}
         </div>
       </Section>
 
-      <BottomDrawer isOpen={isFamilyDrawerOpen} onClose={() => setIsFamilyDrawerOpen(false)} title="编辑家庭基础信息" footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98]">保存设置</button>}>
+      <BottomDrawer isOpen={isFamilyDrawerOpen} onClose={() => setIsFamilyDrawerOpen(false)} title="编辑家庭基础信息" footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存设置</button>}>
         <div className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 mb-1">家庭图标</label><input type="text" className="w-full h-14 bg-white rounded-xl border border-gray-200 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none" value={editFamilyData.avatar} onChange={e => setEditFamilyData({...editFamilyData, avatar: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 mb-1">家庭名称</label><input type="text" className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" value={editFamilyData.name} onChange={e => setEditFamilyData({...editFamilyData, name: e.target.value})} /></div>
+            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">家庭图标</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.avatar} onChange={e => setEditFamilyData({...editFamilyData, avatar: e.target.value})} maxLength={2} /></div>
+            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">家庭名称</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.name} onChange={e => setEditFamilyData({...editFamilyData, name: e.target.value})} /></div>
           </div>
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 mb-1">代币图标</label><input type="text" className="w-full h-14 bg-white rounded-xl border border-gray-200 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none" value={editFamilyData.point_emoji} onChange={e => setEditFamilyData({...editFamilyData, point_emoji: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 mb-1">代币名称</label><input type="text" className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" value={editFamilyData.point_name} onChange={e => setEditFamilyData({...editFamilyData, point_name: e.target.value})} /></div>
+            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">代币图标</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.point_emoji} onChange={e => setEditFamilyData({...editFamilyData, point_emoji: e.target.value})} maxLength={2} /></div>
+            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">代币名称</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.point_name} onChange={e => setEditFamilyData({...editFamilyData, point_name: e.target.value})} /></div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin size={16}/> 所在区/时区 (Timezone)</label>
-            <select className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none appearance-none" value={editFamilyData.timezone} onChange={e => setEditFamilyData({...editFamilyData, timezone: e.target.value})}>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><MapPin size={16}/> 所在区/时区 (Timezone)</label>
+            <select className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-colors" value={editFamilyData.timezone} onChange={e => setEditFamilyData({...editFamilyData, timezone: e.target.value})}>
               <option value="Asia/Shanghai">中国标准时间 (Asia/Shanghai)</option>
               <option value="Asia/Hong_Kong">香港时间 (Asia/Hong_Kong)</option>
               <option value="Asia/Taipei">台北时间 (Asia/Taipei)</option>
@@ -319,14 +274,24 @@ export default function SettingsView() {
         <div className="pt-2 space-y-4">
           {categories.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {categories.map(cat => (<div key={cat.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl shadow-sm"><span className="text-base">{cat.emoji || '🏷️'}</span><span className="text-sm font-bold text-gray-700">{cat.name}</span></div>))}
+              {categories.map(cat => (
+                <div key={cat.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl shadow-sm transition-colors">
+                  <span className="text-base">{cat.emoji || '🏷️'}</span>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{cat.name}</span>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200"><p className="text-sm text-gray-500 font-medium">暂无分类数据，请在管理台中添加</p></div>
+            <div className="text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 transition-colors">
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">暂无分类数据，请在管理台中添加</p>
+            </div>
           )}
-          <div onClick={() => setIsCategoryDrawerOpen(true)} className="flex items-center justify-between bg-blue-50 hover:bg-blue-100 active:scale-[0.98] transition-all p-4 rounded-2xl cursor-pointer">
-            <div><p className="font-bold text-blue-800 text-base">打开分类管理台</p><p className="text-xs text-blue-600 mt-1 font-medium">新增、修改或删除商品分类</p></div>
-            <div className="bg-white p-2 rounded-xl shadow-sm"><ChevronRight className="text-blue-500" size={20} /></div>
+          <div onClick={() => setIsCategoryDrawerOpen(true)} className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-[0.98] transition-all p-4 rounded-2xl cursor-pointer">
+            <div>
+              <p className="font-bold text-blue-800 dark:text-blue-300 text-base transition-colors">打开分类管理台</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium transition-colors">新增、修改或删除商品分类</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm transition-colors"><ChevronRight className="text-blue-500 dark:text-blue-400" size={20} /></div>
           </div>
         </div>
       </Section>
@@ -335,35 +300,35 @@ export default function SettingsView() {
       <Section title="孩子管理" icon={<Baby size={22} />} isOpen={openSection === 'children'} onToggle={() => setOpenSection(openSection === 'children' ? '' : 'children' as any)}>
         <div className="space-y-3 pt-2">
           {childrenList.map((child: Child | any) => (
-            <div key={child.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm relative">
+            <div key={child.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 shadow-sm relative transition-colors">
               <div className="flex items-center gap-4">
-                <span className="text-4xl bg-gray-50 p-2 rounded-xl border border-gray-100">{child.avatar}</span>
+                <span className="text-4xl bg-gray-50 dark:bg-gray-700 p-2 rounded-xl border border-gray-100 dark:border-gray-600 transition-colors">{child.avatar}</span>
                 <div>
-                  <span className="font-bold text-gray-800 text-lg block">{child.name}</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-100 text-lg block transition-colors">{child.name}</span>
                   {child.birthday && (
-                    <span className="text-xs font-bold text-orange-500 flex items-center gap-1 mt-1 bg-orange-50 inline-block px-2 py-0.5 rounded-md"><Calendar size={12} /> {child.birthday}</span>
+                    <span className="text-xs font-bold text-orange-500 dark:text-orange-400 flex items-center gap-1 mt-1 bg-orange-50 dark:bg-orange-900/30 inline-block px-2 py-0.5 rounded-md transition-colors"><Calendar size={12} /> {child.birthday}</span>
                   )}
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                {isAdmin && <button onClick={() => { setChildForm({ id: child.id, name: child.name, avatar: child.avatar, birthday: child.birthday || '' }); setIsChildDrawerOpen(true); }} className="flex-1 py-2 bg-gray-50 text-gray-700 font-bold rounded-xl text-sm flex items-center justify-center gap-1"><Edit3 size={14}/> 编辑</button>}
-                {isAdmin && <button onClick={() => handleGenerateCode('child', child.id)} className="flex-1 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl text-sm flex items-center justify-center gap-1"><Smartphone size={14}/> 绑定码</button>}
+                {isAdmin && <button onClick={() => { setChildForm({ id: child.id, name: child.name, avatar: child.avatar, birthday: child.birthday || '' }); setIsChildDrawerOpen(true); }} className="flex-1 py-2 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors"><Edit3 size={14}/> 编辑</button>}
+                {isAdmin && <button onClick={() => handleGenerateCode('child', child.id)} className="flex-1 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors"><Smartphone size={14}/> 绑定码</button>}
               </div>
             </div>
           ))}
-          {isAdmin && <button onClick={() => { setChildForm({ id: '', name: '', avatar: '👦', birthday: '' }); setIsChildDrawerOpen(true); }} className="w-full flex justify-center items-center gap-2 py-4 border-2 border-dashed border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-gray-50 active:scale-95 transition-transform"><Plus size={18} /> 添加新孩子</button>}
+          {isAdmin && <button onClick={() => { setChildForm({ id: '', name: '', avatar: '👦', birthday: '' }); setIsChildDrawerOpen(true); }} className="w-full flex justify-center items-center gap-2 py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-all"><Plus size={18} /> 添加新孩子</button>}
         </div>
       </Section>
 
-      <BottomDrawer isOpen={isChildDrawerOpen} onClose={() => setIsChildDrawerOpen(false)} title={childForm.id ? "编辑孩子资料" : "添加新孩子"} footer={<button onClick={handleSaveChild} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98]">保存资料</button>}>
+      <BottomDrawer isOpen={isChildDrawerOpen} onClose={() => setIsChildDrawerOpen(false)} title={childForm.id ? "编辑孩子资料" : "添加新孩子"} footer={<button onClick={handleSaveChild} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存资料</button>}>
         <div className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 mb-1">头像</label><input type="text" className="w-full h-14 bg-white rounded-xl border border-gray-200 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none" value={childForm.avatar} onChange={e => setChildForm({...childForm, avatar: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 mb-1">孩子昵称/小名</label><input type="text" className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" value={childForm.name} onChange={e => setChildForm({...childForm, name: e.target.value})} placeholder="输入称呼" /></div>
+            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">头像</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.avatar} onChange={e => setChildForm({...childForm, avatar: e.target.value})} maxLength={2} /></div>
+            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">孩子昵称/小名</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.name} onChange={e => setChildForm({...childForm, name: e.target.value})} placeholder="输入称呼" /></div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-1"><Calendar size={16}/> 生日 (可选)</label>
-            <input type="date" className="w-full h-14 px-4 bg-white rounded-xl border border-gray-200 font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" value={childForm.birthday} onChange={e => setChildForm({...childForm, birthday: e.target.value})} />
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Calendar size={16}/> 生日 (可选)</label>
+            <input type="date" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.birthday} onChange={e => setChildForm({...childForm, birthday: e.target.value})} />
           </div>
         </div>
       </BottomDrawer>
@@ -372,29 +337,35 @@ export default function SettingsView() {
       <Section title="家长成员" icon={<ShieldCheck size={22} />} isOpen={openSection === 'members'} onToggle={() => setOpenSection(openSection === 'members' ? '' : 'members' as any)}>
         <div className="space-y-3 pt-2">
           {members.map(member => (
-            <div key={member.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl"><span className="text-3xl bg-white p-2 rounded-xl">{member.avatar}</span><div className="flex-1"><p className="font-bold text-gray-800 text-base">{member.nick_name}</p><p className="text-xs text-gray-500 font-bold">{member.role}</p></div></div>
+            <div key={member.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl transition-colors">
+              <span className="text-3xl bg-white dark:bg-gray-800 p-2 rounded-xl transition-colors">{member.avatar}</span>
+              <div className="flex-1">
+                <p className="font-bold text-gray-800 dark:text-gray-100 text-base transition-colors">{member.nick_name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-bold transition-colors">{member.role}</p>
+              </div>
+            </div>
           ))}
-          {isAdmin && <button onClick={() => handleGenerateCode('admin')} className="w-full flex justify-center items-center gap-2 py-3 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100"><Plus size={18} /> 邀请家人加入</button>}
+          {isAdmin && <button onClick={() => handleGenerateCode('admin')} className="w-full flex justify-center items-center gap-2 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"><Plus size={18} /> 邀请家人加入</button>}
         </div>
       </Section>
 
       {/* --- 独立底部分组菜单 --- */}
       <div className="mt-8 px-2 animate-fade-in-up">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <button onClick={() => setFeedbackOpen(true)} className="w-full flex items-center gap-3 p-4 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-50">
-            <MessageSquare size={20} className="text-orange-500" />
-            <span className="font-bold text-gray-800 flex-1 text-left">意见反馈</span>
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
+          <button onClick={() => setFeedbackOpen(true)} className="w-full flex items-center gap-3 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors border-b border-gray-50 dark:border-gray-700/50">
+            <MessageSquare size={20} className="text-orange-500 dark:text-orange-400" />
+            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">意见反馈</span>
           </button>
-          <button onClick={() => window.Telegram?.WebApp?.openTelegramLink('https://t.me/+-dVp6A1EnMZjOGI1')} className="w-full flex items-center gap-3 p-4 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-50">
-            <HelpCircle size={20} className="text-blue-500" />
-            <span className="font-bold text-gray-800 flex-1 text-left">帮助与支持</span>
+          <button onClick={() => window.Telegram?.WebApp?.openTelegramLink('https://t.me/+-dVp6A1EnMZjOGI1')} className="w-full flex items-center gap-3 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors border-b border-gray-50 dark:border-gray-700/50">
+            <HelpCircle size={20} className="text-blue-500 dark:text-blue-400" />
+            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">帮助与支持</span>
           </button>
-          <button onClick={handleClearCache} className="w-full flex items-center gap-3 p-4 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors">
-            <Trash2 size={20} className="text-red-500" />
-            <span className="font-bold text-gray-800 flex-1 text-left">清除本地缓存</span>
+          <button onClick={handleClearCache} className="w-full flex items-center gap-3 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors">
+            <Trash2 size={20} className="text-red-500 dark:text-red-400" />
+            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">清除本地缓存</span>
           </button>
         </div>
-        <p className="text-center text-gray-400 text-xs font-bold mt-6 uppercase tracking-widest flex items-center justify-center gap-1">
+        <p className="text-center text-gray-400 dark:text-gray-500 text-xs font-bold mt-6 uppercase tracking-widest flex items-center justify-center gap-1 transition-colors">
           <Info size={12} /> Family Points v{VERSION_INFO.version}
         </p>
       </div>
@@ -402,25 +373,25 @@ export default function SettingsView() {
       {/* --- 全局功能弹窗区 --- */}
       <CategoryManagerDrawer isOpen={isCategoryDrawerOpen} onClose={() => { setIsCategoryDrawerOpen(false); fetchCategories(); }} />
 
-      <BottomDrawer isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} title="意见反馈" footer={<button onClick={handleSendFeedback} disabled={isSubmittingFeedback || !feedbackText.trim()} className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] disabled:bg-gray-300 disabled:shadow-none transition-all">{isSubmittingFeedback ? '发送中...' : '提交反馈给管理员'}</button>}>
-        <p className="text-gray-500 text-sm mb-4 text-center font-medium">有任何问题或建议，请告诉我们。消息将直接发送给系统开发组。</p>
-        <textarea className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-gray-800 font-bold outline-none focus:ring-2 focus:ring-orange-500 resize-none h-36" placeholder="请详细描述您的问题..." value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} />
+      <BottomDrawer isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} title="意见反馈" footer={<button onClick={handleSendFeedback} disabled={isSubmittingFeedback || !feedbackText.trim()} className="w-full py-4 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold rounded-xl shadow-lg active:scale-[0.98] disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:shadow-none transition-all">{isSubmittingFeedback ? '发送中...' : '提交反馈给管理员'}</button>}>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center font-medium transition-colors">有任何问题或建议，请告诉我们。消息将直接发送给系统开发组。</p>
+        <textarea className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4 text-gray-800 dark:text-gray-100 font-bold outline-none focus:ring-2 focus:ring-orange-500 resize-none h-36 transition-colors" placeholder="请详细描述您的问题..." value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} />
       </BottomDrawer>
 
       {inviteModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl relative">
-            <button onClick={() => setInviteModal(null)} className="absolute right-4 top-4 w-8 h-8 bg-gray-100 rounded-full text-gray-500 font-bold flex items-center justify-center">✕</button>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative transition-colors duration-300">
+            <button onClick={() => setInviteModal(null)} className="absolute right-4 top-4 w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 font-bold flex items-center justify-center transition-colors">✕</button>
             <div className="text-center mt-2">
-              <h2 className="text-2xl font-black text-gray-800 mb-2">{inviteModal.title}</h2>
-              <p className="text-gray-500 text-sm mb-6">{inviteModal.desc}</p>
-              <div className="bg-gray-50 p-4 rounded-2xl mb-6 border-2 border-dashed border-gray-300">
-                <p className="text-4xl font-mono font-black text-blue-600 tracking-widest">{inviteModal.code}</p>
-                <p className="text-xs text-gray-400 mt-2">有效期 7 天</p>
+              <h2 className="text-2xl font-black text-gray-800 dark:text-gray-100 mb-2 transition-colors">{inviteModal.title}</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 transition-colors">{inviteModal.desc}</p>
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-2xl mb-6 border-2 border-dashed border-gray-300 dark:border-gray-600 transition-colors">
+                <p className="text-4xl font-mono font-black text-blue-600 dark:text-blue-400 tracking-widest transition-colors">{inviteModal.code}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 transition-colors">有效期 7 天</p>
               </div>
               <div className="space-y-3">
-                <button onClick={() => copyToClipboard(inviteModal.code)} className="w-full flex justify-center items-center gap-2 py-4 bg-gray-100 text-gray-800 font-bold rounded-xl active:scale-95 transition-transform"><Copy size={18} /> 复制凭证码</button>
-                <button onClick={() => copyToClipboard(`【FamilyPoints】${inviteModal.title}\n凭证码：${inviteModal.code}\n快速链接：${inviteModal.link}`)} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-transform">复制完整链接发送</button>
+                <button onClick={() => copyToClipboard(inviteModal.code)} className="w-full flex justify-center items-center gap-2 py-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold rounded-xl active:scale-95 transition-all"><Copy size={18} /> 复制凭证码</button>
+                <button onClick={() => copyToClipboard(`【FamilyPoints】${inviteModal.title}\n凭证码：${inviteModal.code}\n快速链接：${inviteModal.link}`)} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-transform">复制完整链接发送</button>
               </div>
             </div>
           </div>

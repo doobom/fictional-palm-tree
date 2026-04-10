@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS children (
   FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
 );
 
+-- 增加孩子表的 birthday 字段，类型改为 TEXT 以适应不同格式的日期输入（如 "2015-06-01" 或 "2015/06/01"）
+ALTER TABLE children ADD COLUMN birthday TEXT;
+
 -- ==========================================
 -- 2. 鉴权与绑定表
 -- ==========================================

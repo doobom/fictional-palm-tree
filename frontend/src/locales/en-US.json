@@ -53,7 +53,8 @@
     "join_family_success": "Welcome to the family!"
   },
   "parent": {
-    "dashboard_title": "Parent Dashboard",
+    "title_home": "Parent Dashboard",
+    "empty_children": "No children added yet. Go to settings to add!",
     "total_balance": "Available {{pointName}}",
     "gained": "Gained {{pointName}}",
     "spent": "Spent {{pointName}}",

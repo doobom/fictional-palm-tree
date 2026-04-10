@@ -59,28 +59,26 @@ export default function BatchActionDrawer({ isOpen, onClose }: BatchActionDrawer
     } finally { setLoading(false); }
   };
 
-  // 🌟 核心修复 4：移除 return null 让它长留 DOM 等待唤醒动画
-
   const drawerContent = (
     <div className={`fixed inset-0 z-[9999] ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-      <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
+      <div className={`absolute inset-0 bg-black/40 dark:bg-black/60 transition-opacity duration-300 ease-out ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
       
-      <div className={`absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] flex flex-col transform transition-transform duration-300 ease-out max-h-[90vh] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="w-full flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 bg-gray-200 rounded-full" /></div>
+      <div className={`absolute inset-x-0 bottom-0 bg-white dark:bg-gray-900 rounded-t-[24px] flex flex-col transform transition-transform duration-300 ease-out max-h-[90vh] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="w-full flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full" /></div>
 
-        <div className="px-5 pb-2 relative">
-          <button onClick={onClose} className="absolute right-5 top-0 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-500 font-bold">✕</button>
-          <h3 className="text-xl font-semibold text-gray-900">批量调整积分</h3>
+        <div className="px-5 pb-2 relative transition-colors">
+          <button onClick={onClose} className="absolute right-5 top-0 w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 font-bold">✕</button>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">批量调整积分</h3>
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择应用对象</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">选择应用对象</label>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {childrenList.map((child: Child) => {
                 const isSelected = selectedChildIds.has(child.id);
                 return (
-                  <button key={child.id} onClick={() => toggleChild(child.id)} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors shrink-0 ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500'}`}>
+                  <button key={child.id} onClick={() => toggleChild(child.id)} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors shrink-0 ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
                     <span>{child.avatar}</span>
                     <span className="font-semibold text-sm">{child.name}</span>
                   </button>
@@ -89,22 +87,22 @@ export default function BatchActionDrawer({ isOpen, onClose }: BatchActionDrawer
             </div>
           </div>
 
-          <div className="flex bg-gray-100 p-1 rounded-xl">
-            <button onClick={() => { setActionType('add'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'add' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>奖励</button>
-            <button onClick={() => { setActionType('deduct'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'deduct' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>扣除</button>
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl transition-colors">
+            <button onClick={() => { setActionType('add'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'add' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>奖励</button>
+            <button onClick={() => { setActionType('deduct'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'deduct' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>扣除</button>
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center gap-3 bg-gray-100 p-1 pl-4 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-colors">
+            <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 p-1 pl-4 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition-colors">
               <span className="text-xl">{currentFamily?.point_emoji || '🪙'}</span>
-              <input type="number" min="1" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 outline-none" placeholder="输入统一额度" />
+              <input type="number" min="1" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500" placeholder="输入统一额度" />
             </div>
-            <input type="text" value={remark} onChange={(e) => setRemark(e.target.value)} className="w-full bg-gray-100 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium transition-colors" placeholder="批量原因 (选填)" />
+            <input type="text" value={remark} onChange={(e) => setRemark(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder="批量原因 (选填)" />
           </div>
         </div>
 
-        <div className="p-5 pt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 20px)' }}>
-          <button onClick={handleSubmit} disabled={loading || !points || Number(points) <= 0 || selectedChildIds.size === 0} className={`w-full py-3.5 rounded-xl font-semibold text-white text-lg transition-colors ${actionType === 'add' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'} disabled:bg-gray-200 disabled:text-gray-400`}>
+        <div className="p-5 pt-2 bg-white dark:bg-gray-900 transition-colors" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 20px)' }}>
+          <button onClick={handleSubmit} disabled={loading || !points || Number(points) <= 0 || selectedChildIds.size === 0} className={`w-full py-3.5 rounded-xl font-semibold text-white text-lg transition-colors ${actionType === 'add' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'} disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600`}>
             {loading ? '处理中...' : `确认批量${actionType === 'add' ? '发放' : '扣除'}`}
           </button>
         </div>

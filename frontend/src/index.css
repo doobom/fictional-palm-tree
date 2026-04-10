@@ -36,7 +36,8 @@
 
   /* 🌟 全局移动端原生体验优化 */
   html, body {
-    @apply antialiased;
+   /* 🌟 核心：给 body 加上暗色背景和默认文本颜色，并加上平滑过渡 */
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 antialiased transition-colors duration-300;
     
     /* 阻止 iOS/Android 浏览器的下拉橡皮筋(边缘回弹)效果，让应用完全像 Native App */
     overscroll-behavior-y: none; 
