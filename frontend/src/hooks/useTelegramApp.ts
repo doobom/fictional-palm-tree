@@ -1,4 +1,5 @@
 // frontend/src/hooks/useTelegramApp.ts
+/*
 import { useEffect, useState, useCallback } from 'react';
 import { useUserStore } from '../store';
 
@@ -77,12 +78,12 @@ export const useTelegramApp = () => {
       setTgInfo(prev => ({ ...prev, isTelegram: false }));
     }
   }, [setAuth]);
-
+*/
   /**
    * --- 辅助方法区 ---
    * 使用 useCallback 包裹，防止在其他组件的 useEffect 中引发无限重渲染
    */
-
+/*
   // 1. 物理震动反馈：常用于点击按钮、加减分数时
   const triggerImpact = useCallback((style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'light') => {
     if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -115,3 +116,4 @@ export const useTelegramApp = () => {
     BackButton
   };
 };
+*/

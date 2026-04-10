@@ -16,6 +16,7 @@ import categories from './routes/categories.js';
 import analytics from './routes/analytics.js';
 import webhook from './routes/webhook.js';
 import user from './routes/user.js';
+import system from './routes/system.js'; // 🌟 新增系统路由模块
 
 // 导入 Queue 处理器
 import { handleScoreChangeTasks } from './queues/scoreHandler.js';
@@ -67,6 +68,7 @@ app.route('/api/achievements', achievements);
 app.route('/api/categories', categories);
 app.route('/api/analytics', analytics);
 app.route('/api/user', user);
+app.route('/api/system', system);
 app.route('/webhook', webhook);
 
 // 4. 健康检查与根路由

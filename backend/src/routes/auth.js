@@ -125,7 +125,7 @@ auth.post('/bind-platform', async (c) => {
 });
 
 /**
- * 4. 生成邀请链接/码
+ * 4. 生成邀请链接/码 (增加复用逻辑与垃圾清理)
  */
 auth.post('/generate-invite', async (c) => {
   const user = c.get('user');
@@ -133,24 +133,58 @@ auth.post('/generate-invite', async (c) => {
     return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
   }
 
-  const { type } = await c.req.json(); // 'admin' 或 'viewer'
-  const code = nanoid(8).toUpperCase();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7天有效
-
-  await c.env.DB.prepare(`
-    INSERT INTO invitation_codes (code, family_id, type, expires_at)
-    VALUES (?, ?, ?, ?)
-  `).bind(code, user.familyId, type || 'admin', expiresAt).run();
-
+  const { type, childId } = await c.req.json(); 
   const botUsername = c.env.BOT_USERNAME || 'FamilyPointsBot';
-  const inviteLink = `https://t.me/${botUsername}/app?startapp=${code}`;
 
-  return c.json({ 
-    success: true, 
-    code, 
-    inviteLink,
-    message: `🏠 邀请您加入家庭！\n邀请码：${code}\n直接点击加入：${inviteLink}`
-  });
+  try {
+    // 🌟 1. 顺手清理：删除该家庭下所有已经过期的废弃邀请码
+    await c.env.DB.prepare(`
+      DELETE FROM invitation_codes WHERE family_id = ? AND expires_at <= CURRENT_TIMESTAMP
+    `).bind(user.familyId).run();
+
+    // 🌟 2. 查找复用：看看是否已经有存在且未过期的对应邀请码
+    let existingCode;
+    if (type === 'child' && childId) {
+      existingCode = await c.env.DB.prepare(`
+        SELECT code FROM invitation_codes 
+        WHERE family_id = ? AND type = 'child' AND target_child_id = ? AND expires_at > CURRENT_TIMESTAMP
+      `).bind(user.familyId, childId).first();
+    } else {
+      existingCode = await c.env.DB.prepare(`
+        SELECT code FROM invitation_codes 
+        WHERE family_id = ? AND type = ? AND target_child_id IS NULL AND expires_at > CURRENT_TIMESTAMP
+      `).bind(user.familyId, type || 'admin').first();
+    }
+
+    // 如果有有效的，直接复用返回
+    if (existingCode) {
+      const code = existingCode.code;
+      const inviteLink = `https://t.me/${botUsername}/app?startapp=${code}`;
+      return c.json({ 
+        success: true, code, inviteLink,
+        message: `🏠 邀请您加入家庭！\n邀请码：${code}\n直接点击加入：${inviteLink}`
+      });
+    }
+
+    // 🌟 3. 生成全新：如果没有有效的，生成新的 7 天有效期凭证
+    const code = nanoid(8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    await c.env.DB.prepare(`
+      INSERT INTO invitation_codes (code, family_id, type, target_child_id, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(code, user.familyId, type || 'admin', childId || null, expiresAt).run();
+
+    const inviteLink = `https://t.me/${botUsername}/app?startapp=${code}`;
+
+    return c.json({ 
+      success: true, code, inviteLink,
+      message: `🏠 邀请您加入家庭！\n邀请码：${code}\n直接点击加入：${inviteLink}`
+    });
+  } catch (error) {
+    console.error(`[Auth Error] Generate invite failed:`, error);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
+  }
 });
 
 export default auth;

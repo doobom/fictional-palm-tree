@@ -1,4 +1,5 @@
 // frontend/src/pages/parent/ParentDashboard.tsx
+import { Home, Gift, ClipboardCheck, Settings as SettingsIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useUserStore, Child } from '../../store';
@@ -132,38 +133,44 @@ const HomeView: React.FC = () => {
 };
 
 // ==========================================
-// 2. 底部导航栏组件 (Tab Bar)
+// 2. 底部导航栏组件 (Tab Bar) - Lucide 高级重构版
 // ==========================================
 const BottomTabBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
 
+  // 🌟 使用 Lucide 图标组件
   const tabs = [
-    { path: '/parent', label: '首页', icon: '🏠', activeIcon: '🏡' },
-    { path: '/parent/rewards', label: '奖励', icon: '🎁', activeIcon: '🎉' },
-    { path: '/parent/approvals', label: '审批', icon: '✅', activeIcon: '✨' },
-    { path: '/parent/settings', label: '设置', icon: '⚙️', activeIcon: '🛠️' }
+    { path: '/parent', exact: true, label: '首页', icon: Home },
+    { path: '/parent/rewards', exact: false, label: '奖励', icon: Gift },
+    { path: '/parent/approvals', exact: false, label: '审批', icon: ClipboardCheck },
+    { path: '/parent/settings', exact: false, label: '设置', icon: SettingsIcon }
   ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-100 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.04)] z-30">
-      <div className="flex justify-around items-center h-16 sm:h-20 max-w-md mx-auto">
+      <div className="flex justify-around items-center h-16 sm:h-20 max-w-md mx-auto px-2">
         {tabs.map(tab => {
-          // 精确匹配首页，前缀匹配其他页面
-          const isActive = tab.path === '/parent' 
+          const isActive = tab.exact 
             ? currentPath === '/parent' || currentPath === '/parent/' 
             : currentPath.startsWith(tab.path);
+          
+          const Icon = tab.icon;
 
           return (
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className={`flex flex-col items-center justify-center w-full h-full transition-all duration-300 ${
-                isActive ? 'text-blue-600 transform scale-110' : 'text-gray-400 hover:text-gray-600'
+              className={`flex flex-col items-center justify-center w-full h-full transition-colors duration-300 ${
+                isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
               }`}
             >
-              <span className="text-2xl mb-1 drop-shadow-sm">{isActive ? tab.activeIcon : tab.icon}</span>
+              {/* 🌟 选中时图标放大，并且线条变粗 (2 -> 2.5) */}
+              <Icon 
+                className={`w-6 h-6 mb-1 transition-all duration-300 ${isActive ? 'scale-110' : 'scale-100'}`} 
+                strokeWidth={isActive ? 2.5 : 2} 
+              />
               <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'} transition-all duration-300`}>
                 {tab.label}
               </span>
@@ -176,36 +183,42 @@ const BottomTabBar: React.FC = () => {
 };
 
 // ==========================================
-// 3. 父布局主组件 (App Shell Layout)
+// 3. 父布局主组件
 // ==========================================
-
-
 const ParentLayout: React.FC = () => {
+  
+  // 🌟 核心修复 2：强制同步 Telegram 底层背景色，彻底杜绝黑边
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.setBackgroundColor) {
+      // 亮色模式跟随 bg-gray-50 (#f9fafb)，暗色模式跟随 dark:bg-gray-900 (#111827)
+      const bgColor = tg.colorScheme === 'dark' ? '#111827' : '#f9fafb';
+      try { tg.setBackgroundColor(bgColor); } catch (e) {}
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-800 flex flex-col font-sans">
       
-      {/* 🌟 核心修复：动态读取 Telegram 状态栏高度，向下推移，防止遮挡 */}
       <div 
-        className="sticky top-0 z-40 shadow-sm bg-white dark:bg-gray-800 transition-colors"
-        style={{ paddingTop: 'var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))' }}
+        className="sticky top-0 z-40 bg-white dark:bg-gray-800 transition-colors shadow-sm"
+        style={{ paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))' }}
       >
         <FamilySelector />
       </div>
 
-      {/* 动态路由视图区域 (内容区) */}
-      <div className="flex-1 overflow-y-auto">
+      {/* 🌟 核心修复 1：在真正的全局滚动容器上加上 overscroll-y-none，拦截浏览器的橡皮筋特效 */}
+      <div className="flex-1 overflow-y-auto overscroll-y-none">
         <Routes>
           <Route path="/" element={<HomeView />} />
           <Route path="/rewards" element={<RewardsView />} />
           <Route path="/approvals" element={<ApprovalsView />} />
           <Route path="/settings" element={<SettingsView />} />
-          
           <Route path="*" element={<Navigate to="/parent" replace />} />
         </Routes>
       </div>
 
       <BottomTabBar />
-      
     </div>
   );
 };

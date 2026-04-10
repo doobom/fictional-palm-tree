@@ -159,6 +159,8 @@ CREATE INDEX IF NOT EXISTS idx_rewards_category ON rewards(family_id, category_i
 -- 3. 加速分类列表的排序返回
 CREATE INDEX IF NOT EXISTS idx_categories_family_sort ON categories(family_id, sort_order);
 
+-- 4. 给分类表添加一个 emoji 字段，方便前端展示时有个小图标
+ALTER TABLE categories ADD COLUMN emoji TEXT DEFAULT '🏷️';
 
 -- ==========================================
 -- 5. 目标与成就体系

@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast'; // 🌟 核心修复 1：引入 Toaster
 import { useUserStore } from './store';
 import service, { ApiResponse } from './api/request';
 
@@ -11,6 +12,45 @@ import AuthPage from './pages/auth/AuthPage';
 import Onboarding from './pages/auth/Onboarding';
 
 const App: React.FC = () => {
+  // 🌟 新增：全局主题管理器 (智能跟随与手动覆盖)
+  useEffect(() => {
+    const applyTheme = () => {
+      const tg = window.Telegram?.WebApp;
+      // 默认读取本地设置，如果没有则为 auto
+      const pref = localStorage.getItem('app_theme') || 'auto'; 
+      // 判断是否应该应用深色：如果选了 dark，或者选了 auto 且 TG 当前是 dark
+      const isDark = pref === 'dark' || (pref === 'auto' && tg?.colorScheme === 'dark');
+      
+      if (isDark) {
+        document.documentElement.classList.add('dark'); // 给 HTML 根节点打上 dark 标签
+        try { 
+          tg?.setHeaderColor?.('#111827'); // Tailwind gray-900
+          tg?.setBackgroundColor?.('#111827'); 
+        } catch(e){}
+      } else {
+        document.documentElement.classList.remove('dark');
+        try { 
+          tg?.setHeaderColor?.('#ffffff'); 
+          tg?.setBackgroundColor?.('#f9fafb'); // Tailwind gray-50
+        } catch(e){}
+      }
+    };
+
+    applyTheme(); // 应用刚启动时执行一次
+
+    // 1. 监听 Telegram 官方的主题切换事件 (比如用户切到了后台把 TG 换成了黑夜模式)
+    const tg = window.Telegram?.WebApp;
+    tg?.onEvent?.('themeChanged', applyTheme);
+    
+    // 2. 监听设置页面发出的手动修改事件
+    window.addEventListener('theme-updated', applyTheme);
+
+    return () => {
+      tg?.offEvent?.('themeChanged', applyTheme);
+      window.removeEventListener('theme-updated', applyTheme);
+    };
+  }, []);
+  
   const { currentFamilyId, setUserInfo, updateScoreLocal, token, userType } = useUserStore();
   const sseRef = useRef<EventSource | null>(null);
   
@@ -89,6 +129,29 @@ const App: React.FC = () => {
   // 3. 路由逻辑
   return (
     <HashRouter>
+      {/* 🌟 核心修复 2：把 Toaster 挂载到应用的最外层，Toast 终于能看到了！ */}
+      <Toaster 
+        position="top-center" 
+        containerStyle={{
+          top: 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 16px)'
+        }}
+        toastOptions={{ 
+          className: 'font-bold text-sm shadow-xl rounded-xl',
+          duration: 3000,
+          // 默认 Info 提示 (蓝色)
+          style: { background: '#3b82f6', color: '#fff' },
+          success: { 
+            // 成功提示 (绿色)
+            style: { background: '#10b981', color: '#fff' }, 
+            iconTheme: { primary: '#fff', secondary: '#10b981' } 
+          },
+          error: { 
+            // 错误提示 (红色)
+            style: { background: '#ef4444', color: '#fff' }, 
+            iconTheme: { primary: '#fff', secondary: '#ef4444' } 
+          },
+        }} 
+      />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/onboarding" element={<Onboarding />} />

@@ -76,7 +76,7 @@ const ChildDashboard: React.FC = () => {
     <div 
       className="child-dashboard bg-gradient-to-b from-blue-50 to-white min-h-screen px-4 pb-24"
       // 🌟 核心修复：增加顶部安全隔离区 (原生边距 + 额外 1rem 留白)
-      style={{ paddingTop: 'calc(1rem + var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px)))' }}
+      style={{ paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))' }}
     >
       {/* 1. 个人资料与积分卡片 */}
       <section className="relative bg-white rounded-3xl p-6 shadow-xl shadow-blue-100 mb-6 overflow-hidden">

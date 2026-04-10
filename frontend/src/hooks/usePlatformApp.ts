@@ -19,23 +19,8 @@ export const usePlatformApp = () => {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (tg && tg.initData) {
-      tg.ready();
-      tg.expand(); // 展开到最大可用高度
+      // 全屏和展开已经在 index.html 中执行过了，这里只做状态同步
       
-      // 🌟 修复 6: 强制开启终极全屏模式 (新版 Telegram API)
-      if (tg.requestFullscreen) {
-        try { tg.requestFullscreen(); } catch (e) {}
-      }
-      // 禁用垂直下拉刷新，防止像抽屉一样被拉下去关掉
-      if (tg.disableVerticalSwipes) {
-        try { tg.disableVerticalSwipes(); } catch (e) {}
-      }
-      
-      // 🌟 修复 7: 将状态栏颜色与应用背景色融为一体，防止突兀
-      if (tg.setHeaderColor) {
-        tg.setHeaderColor(tg.colorScheme === 'dark' ? '#111827' : '#f9fafb');
-      }
-
       const startParam = tg.initDataUnsafe?.start_param || null;
       setAuth({ tgData: tg.initData });
       setAppInfo({
@@ -49,7 +34,7 @@ export const usePlatformApp = () => {
         else document.documentElement.classList.remove('dark');
         
         if (tg.setHeaderColor) {
-          tg.setHeaderColor(tg.colorScheme === 'dark' ? '#111827' : '#f9fafb');
+          tg.setHeaderColor(tg.colorScheme === 'dark' ? '#111827' : '#ffffff');
         }
       };
 
