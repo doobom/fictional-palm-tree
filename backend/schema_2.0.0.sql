@@ -118,7 +118,7 @@ CREATE TABLE history (
 -- 加速统计和每日限额查询
 CREATE INDEX IF NOT EXISTS idx_history_daily_limit ON history(child_id, rule_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_history_family_time ON history(family_id, created_at DESC);
-
+CREATE INDEX IF NOT EXISTS idx_history_limit_lookup ON history(child_id, rule_id, created_at);
 -- ==========================================
 -- 4. 兑换商品体系
 -- ==========================================

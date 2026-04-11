@@ -10,44 +10,42 @@ const rules = new Hono(); // 🌟 变量名改为 rules
  */
 rules.get('/', async (c) => {
   const user = c.get('user');
-  const childId = c.req.query('childId'); // 🌟 从 Query 参数获取 childId
+  const childId = c.req.query('childId');
 
   try {
-    // 1. 获取家庭时区（默认上海）
-    const family = await c.env.DB.prepare(`SELECT timezone FROM families WHERE id = ?`)
-      .bind(user.familyId).first();
-    const tz = family?.timezone || 'Asia/Shanghai';
+    // 1. 获取家庭时区名称 (例如 "Asia/Shanghai")
+    const family = await c.env.DB.prepare(`SELECT timezone FROM families WHERE id = ?`).bind(user.familyId).first();
+    const tzName = family?.timezone || 'Asia/Shanghai';
 
-    // 2. 计算该时区下的“今日零点”时间戳 (ISO 格式)
-    // 简单处理：获取当前服务器时间，按时区偏移计算出当日起始字符串
+    // 🌟 2. 动态计算时区偏移量字符串 (例如从 "Asia/Shanghai" 算回 "+08:00")
     const now = new Date();
-    const localDateStr = now.toLocaleDateString('sv-SE', { timeZone: tz }); // YYYY-MM-DD
-    const dayStart = `${localDateStr}T00:00:00Z`; 
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: tzName, timeZoneName: 'longOffset' });
+    const parts = formatter.formatToParts(now);
+    const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT+08:00';
+    // 将 "GMT+08:00" 转换为 SQLite 需要的 "+08:00"
+    const sqliteOffset = offsetPart.replace('GMT', '');
 
     let results;
     if (childId) {
-      // 🌟 核心：联表查询 scores 统计该孩子今日针对每条 rule 的使用次数
+      // 🌟 使用动态计算的 sqliteOffset 来统计该时区下的“今天”
       const query = await c.env.DB.prepare(`
         SELECT r.*, 
                (SELECT COUNT(*) FROM history h 
                 WHERE h.rule_id = r.id 
                 AND h.child_id = ? 
-                AND h.created_at >= ?) as today_usage
+                AND date(h.created_at, ?) = date('now', ?)) as today_usage
         FROM rules r
         WHERE r.family_id = ? AND (r.child_id IS NULL OR r.child_id = ?)
         ORDER BY r.created_at DESC
-      `).bind(childId, dayStart, user.familyId, childId).all();
+      `).bind(childId, sqliteOffset, sqliteOffset, user.familyId, childId).all();
       results = query.results;
     } else {
-      const query = await c.env.DB.prepare(`
-        SELECT * FROM rules WHERE family_id = ? ORDER BY created_at DESC
-      `).bind(user.familyId).all();
+      const query = await c.env.DB.prepare(`SELECT * FROM rules WHERE family_id = ? ORDER BY created_at DESC`).bind(user.familyId).all();
       results = query.results;
     }
 
     return c.json({ success: true, data: results });
   } catch (error) {
-    console.error(`[DB Error] Fetch rules failed:`, error.message);
     return c.json({ success: false, errorMessage: error.message }, 500);
   }
 });

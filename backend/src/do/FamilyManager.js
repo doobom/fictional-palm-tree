@@ -61,33 +61,48 @@ export class FamilyManager {
    */
   async handleAdjust(request) {
     const data = await request.json();
-    // 🌟 将 description 改为 remark 接收
     const { childId, points, ruleId, familyId, operatorId, timezone, remark } = data;
 
-    const localTime = new Date().toLocaleString("en-US", { timeZone: timezone || 'Asia/Shanghai' });
-    const todayStr = new Date(localTime).toISOString().split('T')[0];
-    const limitKey = `limit:${childId}:${ruleId || 'manual'}:${todayStr}`;
+    // 1. 每日限额校验逻辑
+    if (ruleId) {
+      // 从 D1 获取该规则的限制
+      const rule = await this.env.DB.prepare(`SELECT daily_limit FROM rules WHERE id = ?`).bind(ruleId).first();
+      const limit = rule?.daily_limit || 0;
 
-    let currentUsage = (await this.state.storage.get(limitKey)) || 0;
-    await this.state.storage.put(limitKey, currentUsage + 1);
+      if (limit > 0) {
+        const tz = timezone || 'Asia/Shanghai';
+        const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+        const limitKey = `limit:${childId}:${ruleId}:${dateStr}`;
 
-    this.state.waitUntil(this.persistAndNotify({
-      ...data,
-      remark, // 🌟 显式传递 remark
-      historyId: crypto.randomUUID()
-    }));
+        let currentUsage = (await this.state.storage.get(limitKey)) || 0;
 
+        // 🛑 核心拦截：如果达到上限，直接拒绝
+        if (currentUsage >= limit) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            errorCode: 'ERR_DAILY_LIMIT_EXCEEDED',
+            errorMessage: '已达每日限额' 
+          }), { status: 403 });
+        }
+
+        // 更新 DO 内部计数器
+        await this.state.storage.put(limitKey, currentUsage + 1);
+      }
+    }
+
+    // 2. 异步持久化到数据库
+    this.state.waitUntil(this.persistAndNotify({ ...data, historyId: crypto.randomUUID() }));
+
+    // 🌟 3. 必须保留：实时广播给全家所有在线成员
     this.broadcast({
       type: "SCORE_UPDATED",
       payload: { childId, points, operatorId, timestamp: Date.now() }
     });
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      newUsage: currentUsage + 1 
-    }), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true }), { 
+      headers: { "Content-Type": "application/json" } 
+    });
   }
-
   /**
    * 处理批量积分变动
    */
