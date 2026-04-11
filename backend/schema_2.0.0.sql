@@ -86,22 +86,33 @@ CREATE TABLE IF NOT EXISTS rules (
   id TEXT PRIMARY KEY,
   family_id TEXT NOT NULL,
   name TEXT NOT NULL,
+  emoji TEXT DEFAULT '⭐',             -- 🌟 新增：规则的图标
   points INTEGER NOT NULL,
   daily_limit INTEGER DEFAULT 0,
+  child_id TEXT,                       -- 🌟 新增：适用的专属孩子ID (NULL表示所有人通用)
+  status TEXT DEFAULT 'active',        -- 🌟 新增：规则状态 (active / inactive)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- 🌟 新增：更新时间
+  FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE  -- 🌟 新增：关联孩子的级联删除
 );
 
-CREATE TABLE IF NOT EXISTS history (
+-- 建议加上索引，因为查询特定孩子的有效规则是非常高频的操作
+CREATE INDEX IF NOT EXISTS idx_rules_child_status ON rules(child_id, status);
+
+-- 积分流水表：记录每一次积分变动的详细日志，方便后续查询和统计
+CREATE TABLE history (
   id TEXT PRIMARY KEY,
   family_id TEXT NOT NULL,
   child_id TEXT NOT NULL,
   rule_id TEXT,
   points INTEGER NOT NULL,
-  operator_id TEXT,                -- users.id
+  operator_id TEXT,
+  remark TEXT,                                      
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
-  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
+  FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE SET NULL  -- 🌟 新增的外键约束
 );
 
 -- 加速统计和每日限额查询

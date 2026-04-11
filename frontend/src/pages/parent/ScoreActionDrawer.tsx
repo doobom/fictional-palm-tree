@@ -24,13 +24,14 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
   const [remark, setRemark] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [rules, setRules] = useState<any[]>([]);
+  const [ruleId, setRuleId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && child) {
       setActionType(initialAction); setPoints(''); setRemark('');
       document.body.style.overflow = 'hidden';
 
-      service.get<any, ApiResponse>('/goals').then(res => {
+      service.get<any, ApiResponse>(`/rules?childId=${child.id}`).then(res => {
         if (res.success && res.data) {
           setRules(res.data);
         }
@@ -40,7 +41,7 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
+  }, [isOpen, child]);
 
   const handleSubmit = async () => {
     if (!child) return;
@@ -51,10 +52,13 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
     try {
       const finalPoints = actionType === 'add' ? numPoints : -Math.abs(numPoints);
       const res = await service.post<any, ApiResponse>('/scores/adjust', {
-        childId: child.id, points: finalPoints, remark: remark || (actionType === 'add' ? '手动奖励' : '手动扣除')
+        childId: child.id, points: finalPoints, remark: remark || (actionType === 'add' ? '手动奖励' : '手动扣除'), ruleId: ruleId
       });
       if (res.success) {
         appToast.success(`已为 ${child.name} ${actionType === 'add' ? '增加' : '扣除'} ${numPoints} 分`);
+        setPoints('');
+        setRemark('');
+        setRuleId(null);
         updateScoreLocal(child.id, finalPoints);
         onSuccess?.(); onClose();
       }
@@ -96,22 +100,41 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">选择家庭规则</label>
               <div className="flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                {displayRules.map(rule => (
-                  <button
-                    key={rule.id}
-                    onClick={() => {
-                      setPoints(Math.abs(rule.points));
-                      setRemark(rule.name);
-                    }}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700 hover:border-blue-200 dark:hover:border-gray-600 rounded-xl transition-all active:scale-95"
-                  >
-                    <span>{rule.emoji || (actionType === 'add' ? '⭐' : '⚠️')}</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{rule.name}</span>
-                    <span className={`text-xs font-bold ${actionType === 'add' ? 'text-blue-500 dark:text-blue-400' : 'text-red-500 dark:text-red-400'}`}>
-                      {actionType === 'add' ? '+' : '-'}{Math.abs(rule.points)}
-                    </span>
-                  </button>
-                ))}
+                {displayRules.map(rule => {
+                  // 🌟 计算逻辑
+                  const limit = rule.daily_limit || 0;
+                  const used = rule.today_usage || 0;
+                  const remaining = limit > 0 ? limit - used : -1; // -1 表示无限
+                  const isExceeded = limit > 0 && remaining <= 0;
+
+                  return (
+                    <button
+                      key={rule.id}
+                      disabled={isExceeded} // 🌟 核心：超限禁用
+                      onClick={() => {
+                        setPoints(Math.abs(rule.points));
+                        setRemark(rule.name);
+                        setRuleId(rule.id);
+                      }}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all active:scale-95 ${
+                        isExceeded 
+                          ? 'bg-gray-100 dark:bg-gray-800 border-transparent opacity-50 grayscale' 
+                          : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:bg-blue-50'
+                      }`}
+                    >
+                      <span>{rule.emoji}</span>
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{rule.name}</span>
+                        {/* 🌟 显示剩余次数标签 */}
+                        {limit > 0 && (
+                          <span className={`text-[10px] font-black ${isExceeded ? 'text-red-500' : 'text-blue-500'}`}>
+                            {isExceeded ? '已达上限' : `剩 ${remaining} 次`}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -132,7 +155,7 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
                 <span className="text-xl">{currentFamily?.point_emoji || '🪙'}</span>
                 <input type="number" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500" placeholder="自定义数值" />
               </div>
-              <input type="text" value={remark} onChange={(e) => setRemark(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder="原因备注 (选填)" />
+              <input type="text" value={remark} onChange={(e) => { setRemark(e.target.value); setRuleId(null); }} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder="原因备注 (选填)" />
             </div>
           </div>
         </div>

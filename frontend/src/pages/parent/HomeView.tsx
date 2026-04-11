@@ -6,6 +6,7 @@ import { useUserStore, Child, Family } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import ScoreActionDrawer from './ScoreActionDrawer';
 import BatchActionDrawer from './BatchActionDrawer';
+import RulesManagerDrawer from './RulesManagerDrawer';
 
 export default function HomeView() {
   const { t } = useTranslation();
@@ -13,13 +14,14 @@ export default function HomeView() {
   const currentFamily = families.find((f: Family) => f.id === currentFamilyId);
   const myRole = currentFamily?.role || 'viewer';
 
-  const [goals, setGoals] = useState<any[]>([]);
+  const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // 抽屉控制状态
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   const [scoreDrawerOpen, setScoreDrawerOpen] = useState(false);
   const [batchDrawerOpen, setBatchDrawerOpen] = useState(false);
+  const [goalManagerOpen, setGoalManagerOpen] = useState(false);
 
   const [initialScoreAction, setInitialScoreAction] = useState<'add' | 'deduct'>('add'); // 🌟 新增：记录点的是加分还是减分
 
@@ -27,12 +29,12 @@ export default function HomeView() {
     if (!currentFamilyId) return;
     setLoading(true);
     try {
-      const [childRes, goalRes]: any = await Promise.all([
+      const [childRes, ruleRes]: any = await Promise.all([
         service.get('/children'),
-        service.get('/goals')
+        service.get('/rules')
       ]);
       setChildrenList(childRes.data);
-      setGoals(goalRes.data);
+      setRules(ruleRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -122,28 +124,34 @@ export default function HomeView() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2 transition-colors"><Star className="text-yellow-400" /> 家庭规则</h2>
           {myRole !== 'viewer' && (
-            <button className="text-blue-600 dark:text-blue-400 font-bold text-sm bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full transition-colors">管理规则</button>
+            /* 🌟 绑定 onClick 事件 */
+            <button 
+              onClick={() => setGoalManagerOpen(true)} 
+              className="text-blue-600 dark:text-blue-400 font-bold text-sm bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full transition-colors active:scale-95"
+            >
+              管理规则
+            </button>
           )}
         </div>
 
-        {goals.length === 0 && !loading ? (
+        {rules.length === 0 && !loading ? (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 transition-colors">
             <p className="text-gray-400 dark:text-gray-500 font-bold text-sm transition-colors">暂无设立的家庭规则</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {goals.map(goal => (
+            {rules.map(rule => (
               /* 🌟 列表卡片适配 */
-              <div key={goal.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+              <div key={rule.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{goal.emoji || '⭐'}</span>
+                  <span className="text-2xl">{rule.emoji || '⭐'}</span>
                   <div>
-                    <p className="font-bold text-gray-800 dark:text-gray-100 transition-colors">{goal.name}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-medium transition-colors">适用于: {goal.child_id ? childrenList.find(c => c.id === goal.child_id)?.name : '所有人'}</p>
+                    <p className="font-bold text-gray-800 dark:text-gray-100 transition-colors">{rule.name}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 font-medium transition-colors">适用于: {rule.child_id ? childrenList.find(c => c.id === rule.child_id)?.name : '所有人'}</p>
                   </div>
                 </div>
-                <div className={`font-black text-lg transition-colors ${goal.points > 0 ? 'text-blue-500 dark:text-blue-400' : 'text-red-500 dark:text-red-400'}`}>
-                  {goal.points > 0 ? '+' : ''}{goal.points}
+                <div className={`font-black text-lg transition-colors ${rule.points > 0 ? 'text-blue-500 dark:text-blue-400' : 'text-red-500 dark:text-red-400'}`}>
+                  {rule.points > 0 ? '+' : ''}{rule.points}
                 </div>
               </div>
             ))}
@@ -162,6 +170,12 @@ export default function HomeView() {
       <BatchActionDrawer 
         isOpen={batchDrawerOpen} 
         onClose={() => setBatchDrawerOpen(false)} 
+      />
+      {/* 🌟 挂载规则管理抽屉 */}
+      <RulesManagerDrawer 
+        isOpen={goalManagerOpen}
+        onClose={() => setGoalManagerOpen(false)}
+        onSuccess={fetchDashboardData}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-// src/locales/index.ts
+// frontend/src/locales/index.ts
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import zhCN from './zh-CN.json';

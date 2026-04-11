@@ -82,17 +82,17 @@ const ParentLayout: React.FC = () => {
 
   return (
     // 🌟 核心修改：大容器背景支持暗夜模式
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 flex flex-col font-sans">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 font-sans overflow-hidden">
       
       {/* 🌟 核心修改：顶部家庭选择器吸顶栏 */}
       <div 
-        className="sticky top-0 z-40 bg-white dark:bg-gray-800 transition-colors duration-300 shadow-sm"
+        className="shrink-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-100 dark:border-gray-700 transition-colors"
         style={{ paddingTop: 'var(--safe-top, env(safe-area-inset-top, 0px))' }}
       >
         <FamilySelector />
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-y-none">
+      <div className="flex-1 overflow-y-auto overscroll-y-contain pb-24">
         <Routes>
           <Route path="/" element={<HomeView />} />
           <Route path="/rewards" element={<RewardsView />} />

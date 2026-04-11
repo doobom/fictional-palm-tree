@@ -14,17 +14,12 @@ export class FamilyManager {
   async fetch(request) {
     const url = new URL(request.url);
 
-    // 路由 1: 建立 SSE 连接 (Real-time Events)
     if (url.pathname === "/events") {
       return this.handleSSE(request);
     }
-
-    // 路由 2: 处理原子积分调整 (Score Adjustment)
     if (url.pathname === "/adjust") {
       return this.handleAdjust(request);
     }
-
-    // 路由 3: 批量积分调整 (Batch Adjustment)
     if (url.pathname === "/adjust-batch") {
       return this.handleBatchAdjust(request);
     }
@@ -40,15 +35,12 @@ export class FamilyManager {
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
 
-    // 创建会话对象
     const session = { writer, encoder };
     this.sessions.add(session);
 
-    // 发送初始连接成功信号和心跳配置
     await writer.write(encoder.encode("retry: 10000\n\n"));
     await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`));
 
-    // 监听连接断开，清理会话
     request.signal.addEventListener("abort", () => {
       this.sessions.delete(session);
       writer.close();
@@ -69,26 +61,22 @@ export class FamilyManager {
    */
   async handleAdjust(request) {
     const data = await request.json();
-    const { childId, points, ruleId, familyId, operatorId, timezone } = data;
+    // 🌟 将 description 改为 remark 接收
+    const { childId, points, ruleId, familyId, operatorId, timezone, remark } = data;
 
-    // 1. 基于用户时区计算“今天”的日期 Key，用于限额校验
-    const localTime = new Date().toLocaleString("en-US", { timeZone: timezone });
+    const localTime = new Date().toLocaleString("en-US", { timeZone: timezone || 'Asia/Shanghai' });
     const todayStr = new Date(localTime).toISOString().split('T')[0];
     const limitKey = `limit:${childId}:${ruleId || 'manual'}:${todayStr}`;
 
-    // 2. 从 DO 存储读取当前限额计数 (比 D1 快得多且保证原子性)
     let currentUsage = (await this.state.storage.get(limitKey)) || 0;
-
-    // 3. 更新 DO 内部状态
     await this.state.storage.put(limitKey, currentUsage + 1);
 
-    // 4. 异步持久化到 D1 并触发成就检查 (非阻塞响应)
     this.state.waitUntil(this.persistAndNotify({
       ...data,
+      remark, // 🌟 显式传递 remark
       historyId: crypto.randomUUID()
     }));
 
-    // 5. 实时广播给所有在线成员
     this.broadcast({
       type: "SCORE_UPDATED",
       payload: { childId, points, operatorId, timestamp: Date.now() }
@@ -105,12 +93,12 @@ export class FamilyManager {
    */
   async handleBatchAdjust(request) {
     const data = await request.json();
-    const { childIds, points, familyId, operatorId, description } = data;
+    // 🌟 将 description 改为 remark 接收
+    const { childIds, points, familyId, operatorId, remark } = data;
 
-    // 批量逻辑：循环处理并广播
     for (const childId of childIds) {
       this.state.waitUntil(this.persistAndNotify({
-        childId, points, familyId, operatorId, description,
+        childId, points, familyId, operatorId, remark,
         historyId: crypto.randomUUID()
       }));
     }
@@ -130,19 +118,34 @@ export class FamilyManager {
    */
   async persistAndNotify(data) {
     try {
-      // 执行 D1 事务更新
-      await this.env.DB.batch([
-        this.env.DB.prepare(`
-          UPDATE children SET score_gained = score_gained + ? 
-          WHERE id = ? AND family_id = ?
-        `).bind(data.points, data.childId, data.familyId),
-        this.env.DB.prepare(`
-          INSERT INTO history (id, family_id, child_id, rule_id, points, operator_id, description) 
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).bind(data.historyId, data.familyId, data.childId, data.ruleId || null, data.points, data.operatorId, data.description || '')
-      ]);
+      const stmts = [];
 
-      // 发送到 Queue 进行成就和目标扫描
+      // 🌟 1. 插入 history 表，使用 remark 字段
+      stmts.push(
+        this.env.DB.prepare(`
+          INSERT INTO history (id, family_id, child_id, rule_id, points, operator_id, remark) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(data.historyId, data.familyId, data.childId, data.ruleId || null, data.points, data.operatorId, data.remark || null)
+      );
+
+      // 🌟 2. 区分加分和扣分，更新 children 表
+      if (data.points > 0) {
+        stmts.push(
+          this.env.DB.prepare(`
+            UPDATE children SET score_gained = score_gained + ? WHERE id = ? AND family_id = ?
+          `).bind(data.points, data.childId, data.familyId)
+        );
+      } else {
+        stmts.push(
+          this.env.DB.prepare(`
+            UPDATE children SET score_spent = score_spent + ? WHERE id = ? AND family_id = ?
+          `).bind(Math.abs(data.points), data.childId, data.familyId)
+        );
+      }
+
+      // 执行 D1 事务更新
+      await this.env.DB.batch(stmts);
+
       if (this.env.SCORE_QUEUE) {
         await this.env.SCORE_QUEUE.send({
           action: 'CHECK_ACHIEVEMENTS',
@@ -165,7 +168,6 @@ export class FamilyManager {
       try {
         session.writer.write(data);
       } catch (e) {
-        // 如果写入失败，说明连接已断开，移除会话
         this.sessions.delete(session);
       }
     }

@@ -44,5 +44,32 @@ export default {
     login_success: "Login successful",
     join_success: "Successfully joined the family!",
     bind_success: "Device successfully bound!"
+  },
+  defaultRules: [
+    { name: 'Finish homework on time', emoji: '📝', points: 10 },
+    { name: 'Do chores (clean room/dishes)', emoji: '🧹', points: 5 },
+    { name: 'Go to bed & wake up on time', emoji: '☀️', points: 5 },
+    { name: 'Excessive screen time', emoji: '📱', points: -10 },
+    { name: 'Throwing tantrums / Being rude', emoji: '😠', points: -5 }
+  ],
+  ruleTemplates: {
+    kindergarten: [
+      { name: 'Eat independently', emoji: '🍚', points: 5 },
+      { name: 'Put away toys', emoji: '🧸', points: 5 },
+      { name: 'Go to bed without fuss', emoji: '😴', points: 5 },
+      { name: 'Throwing things / Tantrums', emoji: '😭', points: -5 }
+    ],
+    primary: [
+      { name: 'Finish school homework', emoji: '📚', points: 10 },
+      { name: 'Read a book for 30 mins', emoji: '📖', points: 10 },
+      { name: 'Pack school bag independently', emoji: '🎒', points: 5 },
+      { name: 'Screen time limit exceeded', emoji: '📺', points: -10 }
+    ],
+    middle_high: [
+      { name: 'Independent study & prep', emoji: '🎯', points: 15 },
+      { name: 'Help with deep house cleaning', emoji: '🧽', points: 10 },
+      { name: 'Exercise for 30 mins', emoji: '🏃', points: 10 },
+      { name: 'Breaking curfew / Severe rules', emoji: '⚠️', points: -20 }
+    ]
   }
 };

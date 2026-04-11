@@ -44,5 +44,32 @@ export default {
     login_success: "登录成功",
     join_success: "成功加入家庭！",
     bind_success: "设备绑定成功！"
+  },
+  defaultRules: [
+    { name: '按时完成作业/任务', emoji: '📝', points: 10 },
+    { name: '主动做家务 (收拾房间/洗碗)', emoji: '🧹', points: 5 },
+    { name: '早睡早起作息规律', emoji: '☀️', points: 5 },
+    { name: '电子产品玩超时', emoji: '📱', points: -10 },
+    { name: '乱发脾气 / 不讲礼貌', emoji: '😠', points: -5 }
+  ],
+  ruleTemplates: {
+    kindergarten: [
+      { name: '自己乖乖吃饭', emoji: '🍚', points: 5 },
+      { name: '自己收拾玩具', emoji: '🧸', points: 5 },
+      { name: '按时睡觉不哭闹', emoji: '😴', points: 5 },
+      { name: '乱丢东西 / 撒泼打滚', emoji: '😭', points: -5 }
+    ],
+    primary: [
+      { name: '按时完成学校作业', emoji: '📚', points: 10 },
+      { name: '阅读课外书 30 分钟', emoji: '📖', points: 10 },
+      { name: '自己整理书包', emoji: '🎒', points: 5 },
+      { name: '看电视/玩游戏超时', emoji: '📺', points: -10 }
+    ],
+    middle_high: [
+      { name: '独立完成预习和复习', emoji: '🎯', points: 15 },
+      { name: '参与家庭大扫除', emoji: '🧽', points: 10 },
+      { name: '坚持体育锻炼 30 分钟', emoji: '🏃', points: 10 },
+      { name: '晚归 / 严重违反家规', emoji: '⚠️', points: -20 }
+    ]
   }
 };

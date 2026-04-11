@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
+import { getGoalsTemplates } from '../locales/index.js';
 
 const goals = new Hono();
 
@@ -105,6 +106,37 @@ goals.get('/list/:childId', async (c) => {
   } catch (e) {
     console.error(`[System Error] 获取目标列表失败. Error:`, e);
     return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: 'Failed to fetch goals' }, 500);
+  }
+});
+
+// 1. 获取当前语言下的所有模板
+goals.get('/templates/all', async (c) => {
+  const user = c.get('user');
+  const templates = getTemplates(user.locale || 'zh-CN');
+  return c.json({ success: true, data: templates });
+});
+
+// 2. 批量导入模板
+goals.post('/manage/batch-import', async (c) => {
+  const user = c.get('user');
+  const { childId, templates } = await c.req.json();
+
+  if (user.role !== 'admin' && user.role !== 'superadmin') {
+    return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
+  }
+
+  try {
+    const stmts = templates.map(t => {
+      return c.env.DB.prepare(`
+        INSERT INTO goals (id, family_id, name, emoji, points, child_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(nanoid(10), user.familyId, t.name, t.emoji, t.points, childId || null);
+    });
+
+    await c.env.DB.batch(stmts);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
   }
 });
 

@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { sign } from 'hono/jwt';
+import { getDefaultRules } from '../locales/index.js'; // 🌟 引入工厂函数
 
 const auth = new Hono();
 
@@ -10,41 +11,45 @@ const auth = new Hono();
  * 逻辑：创建家庭 -> 创建/更新用户 -> 建立 superadmin 成员关系
  */
 auth.post('/create-family', async (c) => {
-  // 🌟 核心修复：从上下文获取 'auth' 而不是 'platform'
-  const authData = c.get('auth'); 
+  const authData = c.get('auth');
   const { familyName, nickName, avatar } = await c.req.json();
 
   if (!familyName || !nickName) {
     return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
   }
 
-  // 安全校验：确保中间件成功传递了身份信息
-  if (!authData || !authData.provider) {
-    return c.json({ success: false, errorCode: 'ERR_UNAUTHORIZED', errorMessage: '未获取到有效的授权身份' }, 401);
-  }
-
   const familyId = nanoid(10);
-  const userId = nanoid(12);
-  const membershipId = nanoid(12);
-  const bindingId = nanoid(12);
+  const inviteCode = nanoid(8).toUpperCase();
+  
+  // 获取当前用户的语言，选取对应的规则模板
+  const userLocale = authData.tgData?.user?.language_code || 'en-US';
+  const defaultRules = getDefaultRules(userLocale);
 
   try {
-    await c.env.DB.batch([
-      // 创建家庭
-      c.env.DB.prepare(`INSERT INTO families (id, name) VALUES (?, ?)`).bind(familyId, familyName),
-      // 创建基础用户
-      c.env.DB.prepare(`INSERT INTO users (id, nick_name, avatar) VALUES (?, ?, ?)`).bind(userId, nickName, avatar || '👤'),
-      // 建立成员关系 (设置为超级管理员)
-      c.env.DB.prepare(`INSERT INTO memberships (id, family_id, user_id, role) VALUES (?, ?, ?, 'superadmin')`)
-        .bind(membershipId, familyId, userId),
-      // 🌟 核心修复：使用 authData.provider
-      c.env.DB.prepare(`INSERT INTO auth_bindings (id, internal_id, user_type, provider, provider_uid) VALUES (?, ?, 'parent', ?, ?)` )
-        .bind(bindingId, userId, authData.provider, authData.providerUid)
-    ]);
+    const stmts = [
+      c.env.DB.prepare(`INSERT INTO families (id, name, avatar) VALUES (?, ?, ?)`).bind(familyId, familyName, avatar || '🏠'),
+      c.env.DB.prepare(`
+        INSERT INTO users (id, nick_name, avatar, locale) VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET nick_name = excluded.nick_name, avatar = excluded.avatar
+      `).bind(authData.internalId, nickName, '👤', userLocale),
+      c.env.DB.prepare(`INSERT INTO memberships (id, family_id, user_id, role) VALUES (?, ?, ?, ?)`).bind(nanoid(10), familyId, authData.internalId, 'superadmin')
+    ];
 
-    return c.json({ success: true, familyId, userId });
+    // 🌟 将默认规则推入批量事务中
+    defaultRules.forEach(rule => {
+      stmts.push(
+        c.env.DB.prepare(`
+          INSERT INTO rules (id, family_id, name, emoji, points, status) 
+          VALUES (?, ?, ?, ?, ?, 'active')
+        `).bind(nanoid(10), familyId, rule.name, rule.emoji, rule.points)
+      );
+    });
+
+    await c.env.DB.batch(stmts);
+
+    return c.json({ success: true, data: { familyId, inviteCode } });
   } catch (error) {
-    console.error(`[Auth Error] Create family failed:`, error);
+    console.error('Create family failed:', error);
     return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
   }
 });
