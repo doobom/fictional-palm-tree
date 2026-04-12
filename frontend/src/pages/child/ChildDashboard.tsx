@@ -4,6 +4,8 @@ import { useUserStore } from '../../store';
 import { usePlatformApp } from '../../hooks/usePlatformApp';
 import service, { ApiResponse } from '../../api/request'; 
 import { appToast } from '../../utils/toast';
+import ScoreTrendChart from '../../components/ScoreTrendChart';
+import { Activity } from 'lucide-react';
 
 export interface ChildDetail {
   id: string;
@@ -22,6 +24,8 @@ const ChildDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const currentFamily = families.find(f => f.id === currentFamilyId);
+
+  const childId = user?.id;
 
   useEffect(() => {
     if (currentFamilyId && user?.id) fetchChildData();
@@ -84,6 +88,23 @@ const ChildDashboard: React.FC = () => {
             <span className="text-xl opacity-90">{currentFamily?.point_emoji || '🪙'}</span>
           </div>
         </div>
+      </section>
+
+      {/* 🌟 新增：统计图表模块 */}
+      <section className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
+            <Activity className="text-blue-500" size={20} />
+            最近 7 天成长轨迹
+          </h2>
+        </div>
+        
+        {/* 渲染图表 */}
+        {childId ? (
+          <ScoreTrendChart childId={childId} />
+        ) : (
+          <div className="text-center text-sm text-gray-400 mt-10">加载中...</div>
+        )}
       </section>
 
       {/* 2. 统计概览 */}

@@ -1,13 +1,15 @@
 // frontend/src/pages/parent/HomeView.tsx
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft, ReceiptText } from 'lucide-react';
+import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft, ReceiptText, TrendingUp, BarChart3 } from 'lucide-react';
 import { useUserStore, Child, Family } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import ScoreActionDrawer from './ScoreActionDrawer';
 import BatchActionDrawer from './BatchActionDrawer';
 import RulesManagerDrawer from './RulesManagerDrawer';
 import HistoryDrawer from './HistoryDrawer';
+import StatisticsDrawer from './StatisticsDrawer';
+import FamilyStatsDrawer from './FamilyStatsDrawer';
 
 export default function HomeView() {
   const { t } = useTranslation();
@@ -20,13 +22,26 @@ export default function HomeView() {
 
   // 抽屉控制状态
   const [activeChild, setActiveChild] = useState<Child | null>(null);
+  // 🌟 1. 增加控制积分调整抽屉的 State
   const [scoreDrawerOpen, setScoreDrawerOpen] = useState(false);
-  const [batchDrawerOpen, setBatchDrawerOpen] = useState(false);
-  const [goalManagerOpen, setGoalManagerOpen] = useState(false);
-  // 🌟 2. 增加控制流水抽屉的 State
-  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
-
   const [initialScoreAction, setInitialScoreAction] = useState<'add' | 'deduct'>('add'); // 🌟 新增：记录点的是加分还是减分
+  // 🌟 2. 增加控制批量操作抽屉的 State
+  const [batchDrawerOpen, setBatchDrawerOpen] = useState(false);
+  // 🌟 3. 增加控制规则管理抽屉的 State
+  const [rulesManagerOpen, setRulesManagerOpen] = useState(false);
+  // 🌟 4. 增加控制流水抽屉的 State
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  // 🌟 5. 增加控制统计抽屉的 State
+  const [statsDrawerOpen, setStatsDrawerOpen] = useState(false);
+  const [selectedChildForStats, setSelectedChildForStats] = useState<any>(null);
+
+  const openStats = (child: any) => {
+    setSelectedChildForStats(child);
+    setStatsDrawerOpen(true);
+  };
+  
+  // 🌟 6. 增加控制家庭统计抽屉的 State
+  const [familyStatsOpen, setFamilyStatsOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     if (!currentFamilyId) return;
@@ -79,6 +94,12 @@ export default function HomeView() {
             <ReceiptText size={16} />
             <span>历史明细</span>
           </button>
+          <button 
+             onClick={() => setFamilyStatsOpen(true)}
+             className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all active:scale-95"
+           >
+             <BarChart3 size={20} />
+           </button>
           <button onClick={fetchDashboardData} className="p-2 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 active:rotate-180 transition-all">
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -93,6 +114,12 @@ export default function HomeView() {
             {childrenList.map((child: Child) => (
               /* 🌟 卡片颜色适配 */
               <div key={child.id} className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-colors duration-300">
+                <button 
+                    onClick={() => openStats(child)}
+                    className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                    >
+                    <TrendingUp size={20} />
+                </button>
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-4xl bg-gray-50 dark:bg-gray-700 p-2 rounded-2xl shadow-sm transition-colors">{child.avatar}</span>
                 </div>
@@ -136,7 +163,7 @@ export default function HomeView() {
           {myRole !== 'viewer' && (
             /* 🌟 绑定 onClick 事件 */
             <button 
-              onClick={() => setGoalManagerOpen(true)} 
+              onClick={() => setRulesManagerOpen(true)} 
               className="text-blue-600 dark:text-blue-400 font-bold text-sm bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full transition-colors active:scale-95"
             >
               管理规则
@@ -169,7 +196,7 @@ export default function HomeView() {
         )}
       </section>
 
-      {/* 挂载操作抽屉 */}
+      {/* 🌟 1. 挂载操作抽屉 */}
       <ScoreActionDrawer 
         isOpen={scoreDrawerOpen} 
         onClose={() => setScoreDrawerOpen(false)} 
@@ -177,14 +204,15 @@ export default function HomeView() {
         child={activeChild} 
         initialAction={initialScoreAction} // 🌟 传递初始操作类型到抽屉组件
       />
+      {/* 🌟 2. 挂载批量操作抽屉 */}
       <BatchActionDrawer 
         isOpen={batchDrawerOpen} 
         onClose={() => setBatchDrawerOpen(false)} 
       />
-      {/* 🌟 挂载规则管理抽屉 */}
+      {/* 🌟 3. 挂载规则管理抽屉 */}
       <RulesManagerDrawer 
-        isOpen={goalManagerOpen}
-        onClose={() => setGoalManagerOpen(false)}
+        isOpen={rulesManagerOpen}
+        onClose={() => setRulesManagerOpen(false)}
         onSuccess={fetchDashboardData}
       />
       {/* 🌟 4. 挂载流水抽屉 */}
@@ -192,6 +220,17 @@ export default function HomeView() {
         isOpen={historyDrawerOpen} 
         onClose={() => setHistoryDrawerOpen(false)} 
         onSuccess={fetchDashboardData}
+      />
+      {/* 🌟 5. 挂载统计抽屉 */}
+      <StatisticsDrawer 
+        isOpen={statsDrawerOpen} 
+        onClose={() => setStatsDrawerOpen(false)} 
+        child={selectedChildForStats}
+      />
+      {/* 🌟 6. 挂载家庭统计抽屉 */}
+      <FamilyStatsDrawer 
+        isOpen={familyStatsOpen} 
+        onClose={() => setFamilyStatsOpen(false)} 
       />
     </div>
   );

@@ -65,37 +65,43 @@ scores.get('/realtime', async (c) => {
  * 3. 历史记录查询
  * 逻辑：历史记录属于持久化数据，直接查询 D1 即可，无需经过 DO
  */
+/**
+ * 获取积分流水历史记录 (支持分页/限额查询)
+ */
 scores.get('/history', async (c) => {
   const user = c.get('user');
   const childId = c.req.query('childId');
-  const limit = Math.min(parseInt(c.req.query('limit')) || 20, 100);
-
-  let query = `
-    SELECT h.*, u.nick_name as operator_name, r.name as rule_name
-    FROM history h
-    LEFT JOIN users u ON h.operator_id = u.id
-    LEFT JOIN rules r ON h.rule_id = r.id
-    WHERE h.family_id = ?
-  `;
-  const params = [user.familyId];
-
-  if (childId) {
-    query += ` AND h.child_id = ? `;
-    params.push(childId);
-  }
-  
-  query += ` ORDER BY h.created_at DESC LIMIT ? `;
-  params.push(limit);
+  const limit = parseInt(c.req.query('limit')) || 50; // 默认查询最近 50 条
 
   try {
+    let query = `
+      SELECT h.id, h.points, h.remark, h.created_at, h.is_revoked,
+             c.name as child_name, c.avatar as child_avatar,
+             r.name as rule_name, r.emoji as rule_emoji,
+             u.nick_name as operator_name
+      FROM history h
+      LEFT JOIN children c ON h.child_id = c.id
+      LEFT JOIN rules r ON h.rule_id = r.id
+      LEFT JOIN users u ON h.operator_id = u.id
+      WHERE h.family_id = ?
+    `;
+    const params = [user.familyId];
+
+    if (childId) {
+      query += ` AND h.child_id = ?`;
+      params.push(childId);
+    }
+
+    query += ` ORDER BY h.created_at DESC LIMIT ?`;
+    params.push(limit);
+
     const { results } = await c.env.DB.prepare(query).bind(...params).all();
     return c.json({ success: true, data: results });
-  } catch (e) {
-    console.error(`[DB Error] Fetch history failed:`, e);
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
+  } catch (error) {
+    console.error(`[DB Error] Fetch history failed:`, error.message);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: error.message }, 500);
   }
 });
-
 /**
  * 4. 批量操作接口
  * 逻辑：循环调用 DO 转发，或者在 DO 中实现专门的批量接口
@@ -127,5 +133,30 @@ scores.post('/batch', async (c) => {
 
   return doResponse;
 });
+/**
+ * 撤回一条积分流水记录
+ */
+scores.post('/undo', async (c) => {
+  const user = c.get('user');
+  const { historyId, timezone } = await c.req.json();
 
+  if (!historyId) {
+    return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
+  }
+
+  const id = c.env.FAMILY_MANAGER.idFromName(user.familyId);
+  const doObj = c.env.FAMILY_MANAGER.get(id);
+
+  try {
+    const doResponse = await doObj.fetch(new Request(`${new URL(c.req.url).origin}/undo`, {
+      method: 'POST',
+      body: JSON.stringify({ historyId, familyId: user.familyId, operatorId: user.id, timezone })
+    }));
+
+    const result = await doResponse.json();
+    return c.json(result, doResponse.status);
+  } catch (error) {
+    return c.json({ success: false, errorMessage: error.message }, 500);
+  }
+});
 export default scores;

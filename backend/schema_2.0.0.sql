@@ -115,6 +115,8 @@ CREATE TABLE history (
   FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE SET NULL  -- 🌟 新增的外键约束
 );
 
+ALTER TABLE history ADD COLUMN is_revoked BOOLEAN DEFAULT 0;
+
 -- 加速统计和每日限额查询
 CREATE INDEX IF NOT EXISTS idx_history_daily_limit ON history(child_id, rule_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_history_family_time ON history(family_id, created_at DESC);

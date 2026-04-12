@@ -23,6 +23,9 @@ export class FamilyManager {
     if (url.pathname === "/adjust-batch") {
       return this.handleBatchAdjust(request);
     }
+    if (url.pathname === "/undo") {
+      return this.handleUndo(request);
+    }
 
     return new Response("Not Found", { status: 404 });
   }
@@ -127,7 +130,67 @@ export class FamilyManager {
       headers: { "Content-Type": "application/json" } 
     });
   }
+  /**
+   * 处理撤回操作 (黄金 5 分钟限制)
+   */
+  async handleUndo(request) {
+    const { historyId, familyId, operatorId, timezone } = await request.json();
 
+    // 1. 获取原记录
+    const log = await this.env.DB.prepare(`SELECT * FROM history WHERE id = ? AND family_id = ?`).bind(historyId, familyId).first();
+    
+    if (!log) {
+      return new Response(JSON.stringify({ success: false, errorMessage: '找不到该记录' }), { status: 404 });
+    }
+    if (log.is_revoked) {
+      return new Response(JSON.stringify({ success: false, errorMessage: '记录已撤回' }), { status: 400 });
+    }
+
+    // 2. 校验 5 分钟时间限制
+    const timeDiff = Date.now() - new Date(log.created_at).getTime();
+    if (timeDiff > 5 * 60 * 1000) {
+      return new Response(JSON.stringify({ success: false, errorCode: 'ERR_TIMEOUT', errorMessage: '只能撤回 5 分钟内的操作' }), { status: 403 });
+    }
+
+    const stmts = [];
+
+    // 3. 标记为已撤回
+    stmts.push(this.env.DB.prepare(`UPDATE history SET is_revoked = 1 WHERE id = ?`).bind(historyId));
+
+    // 4. 翻转孩子总分
+    if (log.points > 0) {
+      // 之前是加分，现在减回去
+      stmts.push(this.env.DB.prepare(`UPDATE children SET score_gained = score_gained - ? WHERE id = ?`).bind(log.points, log.child_id));
+    } else {
+      // 之前是扣分，现在补回来
+      stmts.push(this.env.DB.prepare(`UPDATE children SET score_spent = score_spent - ? WHERE id = ?`).bind(Math.abs(log.points), log.child_id));
+    }
+
+    // 5. 如果有 rule_id，在 DO 中归还今日限额
+    if (log.rule_id) {
+      const tz = timezone || 'Asia/Shanghai';
+      // 撤回的必然是今天的记录
+      const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(log.created_at));
+      const limitKey = `limit:${log.child_id}:${log.rule_id}:${dateStr}`;
+      
+      let currentUsage = (await this.state.storage.get(limitKey)) || 0;
+      if (currentUsage > 0) {
+        await this.state.storage.put(limitKey, currentUsage - 1);
+      }
+    }
+
+    // 执行数据库事务
+    await this.env.DB.batch(stmts);
+
+    // 广播撤回事件
+    this.broadcast({
+      type: "SCORE_UNDONE",
+      payload: { childId: log.child_id, points: -log.points, operatorId, timestamp: Date.now() }
+    });
+
+    return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
+  }
+  
   /**
    * 持久化到 D1 并发送 Queue 消息
    */
