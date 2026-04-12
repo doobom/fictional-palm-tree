@@ -1,12 +1,13 @@
 // frontend/src/pages/parent/HomeView.tsx
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft } from 'lucide-react';
+import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft, ReceiptText } from 'lucide-react';
 import { useUserStore, Child, Family } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import ScoreActionDrawer from './ScoreActionDrawer';
 import BatchActionDrawer from './BatchActionDrawer';
 import RulesManagerDrawer from './RulesManagerDrawer';
+import HistoryDrawer from './HistoryDrawer';
 
 export default function HomeView() {
   const { t } = useTranslation();
@@ -22,6 +23,8 @@ export default function HomeView() {
   const [scoreDrawerOpen, setScoreDrawerOpen] = useState(false);
   const [batchDrawerOpen, setBatchDrawerOpen] = useState(false);
   const [goalManagerOpen, setGoalManagerOpen] = useState(false);
+  // 🌟 2. 增加控制流水抽屉的 State
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
 
   const [initialScoreAction, setInitialScoreAction] = useState<'add' | 'deduct'>('add'); // 🌟 新增：记录点的是加分还是减分
 
@@ -69,6 +72,13 @@ export default function HomeView() {
       <section>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-extrabold text-gray-900 dark:text-white transition-colors">{t('parent.title_home')}</h2>
+          <button 
+            onClick={() => setHistoryDrawerOpen(true)}
+            className="flex items-center gap-1 text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
+          >
+            <ReceiptText size={16} />
+            <span>历史明细</span>
+          </button>
           <button onClick={fetchDashboardData} className="p-2 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 active:rotate-180 transition-all">
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -175,6 +185,12 @@ export default function HomeView() {
       <RulesManagerDrawer 
         isOpen={goalManagerOpen}
         onClose={() => setGoalManagerOpen(false)}
+        onSuccess={fetchDashboardData}
+      />
+      {/* 🌟 4. 挂载流水抽屉 */}
+      <HistoryDrawer 
+        isOpen={historyDrawerOpen} 
+        onClose={() => setHistoryDrawerOpen(false)} 
         onSuccess={fetchDashboardData}
       />
     </div>

@@ -50,7 +50,7 @@ const App: React.FC = () => {
       window.removeEventListener('theme-updated', applyTheme);
     };
   }, []);
-  
+
   const { currentFamilyId, setUserInfo, updateScoreLocal, token, userType } = useUserStore();
   const sseRef = useRef<EventSource | null>(null);
   
@@ -96,9 +96,29 @@ const App: React.FC = () => {
     sse.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        /*
         if (data.type === 'SCORE_UPDATED') {
           const { childId, points } = data.payload;
           updateScoreLocal(childId, points);
+        }
+          */
+        // 🌟 优化：把所有可能影响分数变动的事件都放在一起处理，避免遗漏
+        switch (data.type) {
+          case 'SCORE_UPDATED':
+          case 'BATCH_SCORE_UPDATED':
+          case 'SCORE_UNDONE': // 🌟 把它加上！因为 DO 里撤回时传的 points 已经是负数/翻转过的了，所以可以直接复用 updateScoreLocal
+            
+            // 取出 payload 中的 childId 和变动的 points
+            const { childId, points, childIds } = data.payload;
+            
+            if (childId) {
+              updateScoreLocal(childId, points); // 触发 Zustand store 更新内存数据
+            } else if (childIds) {
+              childIds.forEach((id: string) => updateScoreLocal(id, points));
+            }
+            break;
+            
+          // ... 其他事件git 
         }
       } catch (e) {
         console.error('SSE parse error', e);

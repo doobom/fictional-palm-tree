@@ -53,7 +53,7 @@
     "join_family_success": "欢迎加入家庭！"
   },
   "parent": {
-    "title_home": "家长控制台",
+    "title_home": "积分概览",
     "empty_children": "还没有添加孩子，快去设置里添加吧！",
     "total_balance": "当前可用{{pointName}}",
     "gained": "累计获得{{pointName}}",
