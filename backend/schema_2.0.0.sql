@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS rules (
 CREATE INDEX IF NOT EXISTS idx_rules_child_status ON rules(child_id, status);
 
 -- 积分流水表：记录每一次积分变动的详细日志，方便后续查询和统计
-CREATE TABLE history (
+CREATE TABLE IF NOT EXISTS history (
   id TEXT PRIMARY KEY,
   family_id TEXT NOT NULL,
   child_id TEXT NOT NULL,
@@ -210,9 +210,17 @@ CREATE TABLE IF NOT EXISTS achievements (
   unlocked_at DATETIME,
   UNIQUE(child_id, achievement_key), -- 同一个孩子同一个成就只能有一条记录
   FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
-  -- PRIMARY KEY (child_id, achievement_key),  -- 也可以用联合主键替代单独的 id 字段 -- 与 主键冲突，改为 UNIQUE 索引
   FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
+  -- PRIMARY KEY (child_id, achievement_key),  -- 也可以用联合主键替代单独的 id 字段 -- 与 主键冲突，改为 UNIQUE 索引
 );
+
+-- 1. 扩展成就表：支持手动颁发和自定义描述
+ALTER TABLE achievements ADD COLUMN is_manual BOOLEAN DEFAULT 0;
+ALTER TABLE achievements ADD COLUMN manual_name TEXT;
+ALTER TABLE achievements ADD COLUMN manual_emoji TEXT;
+
+-- 2. 在孩子表增加红点状态位
+ALTER TABLE children ADD COLUMN has_new_achievement BOOLEAN DEFAULT 0;
 
 -- goals 表中获取孩子的活跃目标非常高频
 CREATE INDEX IF NOT EXISTS idx_goals_child_status ON goals(child_id, status);

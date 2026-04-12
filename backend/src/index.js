@@ -90,6 +90,8 @@ export default {
    * 处理异步队列任务 (Cloudflare Queues)
    */
   async queue(batch, env, ctx) {
+    console.log(`[Queue] 收到 ${batch.messages.length} 条消息`);
+    
     for (const msg of batch.messages) {
       try {
         const data = msg.body;

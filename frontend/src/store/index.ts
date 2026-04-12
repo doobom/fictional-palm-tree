@@ -20,6 +20,7 @@ export interface Child {
   name: string;
   avatar: string;
   balance: number;
+  has_new_achievement?: number;
 }
 
 export interface UserProfile {

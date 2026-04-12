@@ -1,6 +1,7 @@
 // src/routes/achievements.js
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
+import { ACHIEVEMENTS_META } from '../queues/scoreHandler.js';
 
 const achievements = new Hono();
 
@@ -13,6 +14,87 @@ const ACHIEVEMENT_RULES = {
   'redeem_first': { target: 1 }
 };
 
+achievements.get('/', async (c) => {
+  const user = c.get('user');
+  const childId = c.req.query('childId');
+
+  if (!childId) {
+    return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
+  }
+
+  try {
+    // 🌟 A. 物理清除数据库中的红点标记
+    await c.env.DB.prepare(`UPDATE children SET has_new_achievement = 0 WHERE id = ? AND family_id = ?`)
+      .bind(childId, user.familyId).run();
+
+    // B. 查询成就记录
+    const { results } = await c.env.DB.prepare(`
+      SELECT achievement_key, unlocked, progress, unlocked_at, is_manual, manual_name, manual_emoji
+      FROM achievements WHERE child_id = ? AND family_id = ?
+    `).bind(childId, user.familyId).all();
+
+    const dbStateMap = new Map();
+    results.forEach(r => dbStateMap.set(r.achievement_key, r));
+
+    // 将预设字典和你数据库里的状态合并
+    const data = ACHIEVEMENTS_META.map(meta => {
+      const dbInfo = dbStateMap.get(meta.key);
+      return {
+        ...meta,
+        unlocked: dbInfo ? dbInfo.unlocked === 1 : false,
+        progress: dbInfo ? dbInfo.progress : 0,
+        unlocked_at: dbInfo ? dbInfo.unlocked_at : null
+      };
+    });
+
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error(`[DB Error] Fetch achievements failed:`, error.message);
+    return c.json({ success: false, errorMessage: error.message }, 500);
+  }
+});
+/**
+ * 2. 手动颁发勋章：严格权限隔离
+ */
+achievements.post('/manual-issue', async (c) => {
+  const user = c.get('user');
+  const { childId, name, emoji } = await c.req.json();
+
+  // 🌟 权限隔离：仅允许非 viewer 角色的家长操作
+  if (user.userType !== 'parent' || user.role === 'viewer') {
+    return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
+  }
+
+  try {
+    const achievementId = crypto.randomUUID();
+    const achievementKey = `manual_${Date.now()}`;
+
+    // A. 写入成就表
+    await c.env.DB.prepare(`
+      INSERT INTO achievements (id, family_id, child_id, achievement_key, unlocked, unlocked_at, is_manual, manual_name, manual_emoji)
+      VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, 1, ?, ?)
+    `).bind(achievementId, user.familyId, childId, achievementKey, name, emoji).run();
+
+    // 🌟 B. 标记红点
+    await c.env.DB.prepare(`UPDATE children SET has_new_achievement = 1 WHERE id = ?`).bind(childId).run();
+
+    // C. 通过 DO 实时通知全家
+    const doId = c.env.FAMILY_MANAGER.idFromName(user.familyId);
+    const doObj = c.env.FAMILY_MANAGER.get(doId);
+    await doObj.fetch(new Request(`${new URL(c.req.url).origin}/internal/broadcast-achievement`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        childId, 
+        hasNew: true, // 告知前端需要显示红点
+        achievements: [{ name, emoji, is_manual: true }] 
+      })
+    }));
+
+    return c.json({ success: true });
+  } catch (e) {
+    return c.json({ success: false, errorMessage: e.message }, 500);
+  }
+});
 /**
  * 1. 获取成就墙
  * GET /api/achievements/:childId

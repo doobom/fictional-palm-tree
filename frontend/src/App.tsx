@@ -96,19 +96,15 @@ const App: React.FC = () => {
     sse.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        /*
-        if (data.type === 'SCORE_UPDATED') {
-          const { childId, points } = data.payload;
-          updateScoreLocal(childId, points);
-        }
-          */
-        // 🌟 优化：把所有可能影响分数变动的事件都放在一起处理，避免遗漏
+        
+        // 🌟 修复 1：使用 Zustand 的 getState() 脱离 React 生命周期获取最新的 State 和方法
+        const { setChildrenList, childrenList } = useUserStore.getState();
+
         switch (data.type) {
           case 'SCORE_UPDATED':
           case 'BATCH_SCORE_UPDATED':
-          case 'SCORE_UNDONE': // 🌟 把它加上！因为 DO 里撤回时传的 points 已经是负数/翻转过的了，所以可以直接复用 updateScoreLocal
-            
-            // 取出 payload 中的 childId 和变动的 points
+          case 'SCORE_UNDONE': { 
+            // 🌟 修复 2：加上花括号 {} 形成独立的块级作用域
             const { childId, points, childIds } = data.payload;
             
             if (childId) {
@@ -117,8 +113,20 @@ const App: React.FC = () => {
               childIds.forEach((id: string) => updateScoreLocal(id, points));
             }
             break;
-            
-          // ... 其他事件git 
+          } // 结束独立作用域
+
+          case 'ACHIEVEMENT_UNLOCKED': { 
+            // 🌟 修复 2：加上花括号 {}，这里的 childId 就不会和上面的起冲突了
+            const { childId, hasNew } = data.payload;
+            if (hasNew) {
+              // 实时更新本地 Store，让首页图标冒出红点
+              const newList = childrenList.map(child => 
+                child.id === childId ? { ...child, has_new_achievement: 1 } : child
+              );
+              setChildrenList(newList);
+            }
+            break; 
+          }
         }
       } catch (e) {
         console.error('SSE parse error', e);

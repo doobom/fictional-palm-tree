@@ -1,7 +1,7 @@
 // frontend/src/pages/parent/HomeView.tsx
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft, ReceiptText, TrendingUp, BarChart3 } from 'lucide-react';
+import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft, ReceiptText, TrendingUp, BarChart3, Trophy } from 'lucide-react';
 import { useUserStore, Child, Family } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import ScoreActionDrawer from './ScoreActionDrawer';
@@ -10,6 +10,7 @@ import RulesManagerDrawer from './RulesManagerDrawer';
 import HistoryDrawer from './HistoryDrawer';
 import StatisticsDrawer from './StatisticsDrawer';
 import FamilyStatsDrawer from './FamilyStatsDrawer';
+import AchievementDrawer from './AchievementDrawer';
 
 export default function HomeView() {
   const { t } = useTranslation();
@@ -42,6 +43,14 @@ export default function HomeView() {
   
   // 🌟 6. 增加控制家庭统计抽屉的 State
   const [familyStatsOpen, setFamilyStatsOpen] = useState(false);
+  // 🌟 7. 增加控制成就抽屉的 State
+  const [achDrawerOpen, setAchDrawerOpen] = useState(false);
+  const [selectedChildForAch, setSelectedChildForAch] = useState<any>(null);
+
+  const openAchievements = (child: any) => {
+    setSelectedChildForAch(child);
+    setAchDrawerOpen(true);
+  };
 
   const fetchDashboardData = async () => {
     if (!currentFamilyId) return;
@@ -114,6 +123,16 @@ export default function HomeView() {
             {childrenList.map((child: Child) => (
               /* 🌟 卡片颜色适配 */
               <div key={child.id} className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-colors duration-300">
+                <button 
+                    onClick={() => openAchievements(child)}
+                    className="absolute top-4 right-12 p-2 text-gray-400 hover:text-yellow-500 transition-colors"
+                    >
+                    <Trophy size={18} />
+                    {/* 🌟 红点提示 */}
+                    {child.has_new_achievement === 1 && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-gray-800" />
+                    )}
+                </button>
                 <button 
                     onClick={() => openStats(child)}
                     className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-500 transition-colors"
@@ -231,6 +250,12 @@ export default function HomeView() {
       <FamilyStatsDrawer 
         isOpen={familyStatsOpen} 
         onClose={() => setFamilyStatsOpen(false)} 
+      />
+      {/* 🌟 7. 挂载成就抽屉 */}
+      <AchievementDrawer 
+        isOpen={achDrawerOpen} 
+        onClose={() => setAchDrawerOpen(false)} 
+        child={selectedChildForAch}
       />
     </div>
   );

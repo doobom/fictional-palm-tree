@@ -26,6 +26,11 @@ export class FamilyManager {
     if (url.pathname === "/undo") {
       return this.handleUndo(request);
     }
+    if (url.pathname === "/internal/broadcast-achievement") {
+      const data = await request.json();
+      this.broadcast({ type: "ACHIEVEMENT_UNLOCKED", payload: data });
+      return new Response("OK");
+    }
 
     return new Response("Not Found", { status: 404 });
   }
@@ -190,7 +195,7 @@ export class FamilyManager {
 
     return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
   }
-  
+
   /**
    * 持久化到 D1 并发送 Queue 消息
    */
@@ -224,8 +229,11 @@ export class FamilyManager {
       // 执行 D1 事务更新
       await this.env.DB.batch(stmts);
 
-      if (this.env.SCORE_QUEUE) {
-        await this.env.SCORE_QUEUE.send({
+      // 🌟 打印日志，看看 MSG_QUEUE 到底存不存在
+      console.log("[DO] 准备发送 Queue, MSG_QUEUE 是否存在:", !!this.env.MSG_QUEUE);
+
+      if (this.env.MSG_QUEUE) {
+        await this.env.MSG_QUEUE.send({
           action: 'CHECK_ACHIEVEMENTS',
           ...data
         });
