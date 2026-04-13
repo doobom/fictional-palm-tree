@@ -5,8 +5,9 @@ import { usePlatformApp } from '../../hooks/usePlatformApp';
 import service, { ApiResponse } from '../../api/request'; 
 import { appToast } from '../../utils/toast';
 import ScoreTrendChart from '../../components/ScoreTrendChart';
-import { Activity,Target, ArrowRight } from 'lucide-react';
+import { Activity,Target, ArrowRight, Camera } from 'lucide-react';
 import ChildGoalDrawer from './ChildGoalDrawer';
+import ChildSubmitTaskDrawer from './ChildSubmitTaskDrawer'; // 引入组件
 
 export interface ChildDetail {
   id: string;
@@ -50,6 +51,7 @@ const ChildDashboard: React.FC = () => {
     window.location.hash = '#/child/rewards'; // 放开注释，允许跳转
   };
 
+  // 🌟 新增：目标抽屉状态
   const [activeGoal, setActiveGoal] = useState<any>(null);
   const [goalDrawerOpen, setGoalDrawerOpen] = useState(false);
 
@@ -65,6 +67,9 @@ const ChildDashboard: React.FC = () => {
       setActiveGoal(active);
     }
   };
+
+  // 🌟 新增：提交任务抽屉状态
+  const [submitDrawerOpen, setSubmitDrawerOpen] = useState(false);
 
   if (loading && !data) {
     return (
@@ -104,6 +109,13 @@ const ChildDashboard: React.FC = () => {
             <span className="text-5xl font-black tracking-tight">{data?.balance || 0}</span>
             <span className="text-xl opacity-90">{currentFamily?.point_emoji || '🪙'}</span>
           </div>
+          {/* 🌟 新增：高亮申报按钮 */}
+          <button 
+            onClick={() => setSubmitDrawerOpen(true)}
+            className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black text-lg rounded-[24px] shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-3 active:scale-[0.98] transition-all"
+          >
+            <Camera size={24} /> 拍一张！申报任务奖励
+          </button>
         </div>
       </section>
       {/* 2. 🌟 愿望进度卡片 (Widget) */}
@@ -210,6 +222,12 @@ const ChildDashboard: React.FC = () => {
         setGoalDrawerOpen(false);
         fetchActiveGoal();
       }} />
+
+      {/* 🌟 挂载组件，并可以传入 onSuccess 回调来刷新首页状态 */}
+      <ChildSubmitTaskDrawer 
+        isOpen={submitDrawerOpen} 
+        onClose={() => setSubmitDrawerOpen(false)} 
+      />
     </div>
   );
 };

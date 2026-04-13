@@ -6,7 +6,6 @@ import { useUserStore, Child } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
 
-// 🌟 修正字段：后端返回的是 cost 和 emoji
 export interface Reward {
   id: string;
   name: string;
@@ -23,7 +22,8 @@ export interface AdminRedeemDrawerProps {
 
 export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }: AdminRedeemDrawerProps) {
   const { t } = useTranslation();
-  const { currentFamilyId, childrenList, setChildrenList, updateScoreLocal } = useUserStore();
+  // 🌟 核心修改：不再需要 updateScoreLocal，完全交由 SSE 实时更新
+  const { currentFamilyId, childrenList, setChildrenList } = useUserStore();
   
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,26 +59,31 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
     }
 
     const targetChild = childrenList.find((c: Child) => c.id === selectedChildId);
-    if (targetChild && targetChild.balance < reward.cost) { // 🌟 改为判断 cost
+    if (targetChild && (targetChild.balance || 0) < reward.cost) { 
       appToast.error(t('common.insufficient_points') || '该成员积分不足，无法兑换');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await service.post<any, ApiResponse>('/rewards/redeem', {
+      // 🌟 核心修改：直接走通用的 adjust 接口，触发 DO 队列防并发扣分，并自带 SSE 广播
+      const res = await service.post<any, ApiResponse>('/rewards/admin-redeem', {
         childId: selectedChildId,
-        rewardId: reward.id,
-        adminOverride: true 
+        rewardId: reward.id
       });
 
-      if (res.success) {
+      // request.ts 会拦截报错，能走到这说明一定成功了
+      if (res && res.success) {
         appToast.success(`成功为 ${targetChild?.name} 兑换了 ${reward.name}！`);
-        updateScoreLocal(selectedChildId, -reward.cost); // 🌟 扣除 cost
+        // updateScoreLocal(selectedChildId, -reward.cost); <- 🌟 删掉了这行，防止假双倍扣分
         onSuccess?.();
         onClose();
       }
-    } catch (err) {} finally { setLoading(false); }
+    } catch (err) {
+      console.error(err);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   // 如果没有数据就不渲染内部
@@ -127,12 +132,12 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
           </p>
 
           {fetching ? (
-            <div className="text-center py-10 text-gray-400">加载成员中...</div>
+            <div className="text-center py-10 text-gray-400 animate-pulse">加载成员中...</div>
           ) : (
             <div className="space-y-3">
               {childrenList.map((child: Child) => {
                 const isSelected = selectedChildId === child.id;
-                const canAfford = child.balance >= reward.cost;
+                const canAfford = (child.balance || 0) >= reward.cost;
 
                 return (
                   <button
@@ -153,7 +158,7 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
                     <div className="flex-1">
                       <p className="font-bold text-gray-800 dark:text-gray-100 text-lg transition-colors">{child.name}</p>
                       <p className={`text-sm transition-colors ${canAfford ? 'text-gray-500 dark:text-gray-400' : 'text-red-400 dark:text-red-500'}`}>
-                        当前余额: {child.balance}
+                        当前余额: {child.balance || 0}
                         {!canAfford && ' (不足)'}
                       </p>
                     </div>
@@ -174,9 +179,9 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
           <button
             onClick={handleSubmit}
             disabled={!selectedChildId || loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 text-lg"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 text-lg flex items-center justify-center gap-2"
           >
-            {loading ? '处理中...' : '确认兑换'}
+            {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '确认兑换'}
           </button>
         </div>
       </div>

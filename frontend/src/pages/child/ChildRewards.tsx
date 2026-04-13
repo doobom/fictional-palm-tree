@@ -1,17 +1,18 @@
 // frontend/src/pages/child/ChildRewards.tsx
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Store, Sparkles, X, LayoutGrid, List as ListIcon, Search } from 'lucide-react';
+import { Store, Sparkles, X, LayoutGrid, List as ListIcon, Search, MessageSquare } from 'lucide-react';
 import api from '../../api/request';
 import { appToast } from '../../utils/toast';
 import { useViewMode } from '../../hooks/useViewMode';
+import { useUserStore } from '../../store'; // 🌟 引入全局状态
 
 export default function ChildRewards() {
   const { t } = useTranslation();
+  const { childrenList, user } = useUserStore(); // 🌟 引入全局孩子列表和当前用户
   
   const [rewards, setRewards] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [myCoins, setMyCoins] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   const [keyword, setKeyword] = useState('');
@@ -20,23 +21,24 @@ export default function ChildRewards() {
 
   const [selectedReward, setSelectedReward] = useState<any | null>(null);
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [evidenceText, setEvidenceText] = useState('');
+
+  // 🌟 核心优化：直接根据全局内存状态实时计算金币
+  // 当家长审批通过，SSE 触发全局 childrenList 更新时，这里的 myCoins 会在毫秒级自动重算并刷新 UI
+  const myProfile = childrenList.find(c => c.id === user?.id);
+  const myCoins = myProfile ? (myProfile.balance || 0) : 0;
 
   const fetchStoreData = async () => {
     setLoading(true);
     try {
-      const [rewardsRes, catRes, meRes, childListRes]: any = await Promise.all([
+      // 🌟 删除了冗余的 /me 和 /children/list 请求，只拉取商店商品和分类，速度更快！
+      const [rewardsRes, catRes]: any = await Promise.all([
         api.get(`/rewards/list?keyword=${keyword}&categoryId=${categoryId}`),
-        api.get('/categories/list'),
-        api.get('/me'),
-        api.get('/children/list')
+        api.get('/categories/list')
       ]);
 
       setRewards(rewardsRes.data);
       setCategories(catRes.data);
-
-      const myId = meRes.data.internalId;
-      const profile = childListRes.data.find((c: any) => c.id === myId);
-      if (profile) setMyCoins(profile.score_gained - profile.score_spent);
     } catch (err) {} finally {
       setLoading(false);
     }
@@ -47,22 +49,37 @@ export default function ChildRewards() {
     return () => clearTimeout(timer);
   }, [keyword, categoryId]);
 
+  const openRedeemDrawer = (reward: any) => {
+    setSelectedReward(reward);
+    setEvidenceText(''); 
+  };
+
   const handleRedeem = async () => {
     if (!selectedReward) return;
     setIsRedeeming(true);
     try {
-      const res: any = await api.post('/rewards/redeem', { rewardId: selectedReward.id });
-      if (res.status === 'pending') appToast.success(t('child.redeem_pending'));
-      else appToast.success(t('child.redeem_success'));
-      setSelectedReward(null);
-      fetchStoreData(); 
-    } catch (err) {} finally {
+      const res: any = await api.post('/approvals', {
+        type: 'reward',                      
+        rewardId: selectedReward.id,         
+        title: selectedReward.name,          
+        requestedPoints: selectedReward.cost,
+        evidenceText: evidenceText || '我想兑换这个商品！' 
+      });
+      
+      // request.ts 拦截器只在报错时走 catch，成功时会返回 payload
+      if (res && res.success) {
+        appToast.success('兑换申请已发送！请等待家长同意 🎁');
+        setSelectedReward(null);
+      }
+    } catch (err) {
+      // 这里的网络错误提示由 request.ts 的 catch 兜底
+      console.error(err);
+    } finally {
       setIsRedeeming(false);
     }
   };
 
   return (
-    // 🌟 全局容器加入暗色背景
     <div className="p-4 pt-8 pb-safe min-h-screen relative bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <div className="flex items-center space-x-2 mb-4">
         <Store className="text-pink-500" size={24} />
@@ -118,7 +135,7 @@ export default function ChildRewards() {
 
             return (
               <div 
-                key={reward.id} onClick={() => isAvailable && setSelectedReward(reward)}
+                key={reward.id} onClick={() => isAvailable && openRedeemDrawer(reward)}
                 className={`bg-white dark:bg-gray-800 rounded-2xl border transition-colors relative overflow-hidden ${viewMode === 'list' ? 'flex p-3 items-center' : 'p-4 flex flex-col'} ${isAvailable ? 'border-gray-100 dark:border-gray-700 shadow-sm hover:border-pink-200 dark:hover:border-pink-800 hover:shadow-md active:scale-95 cursor-pointer' : 'border-gray-100 dark:border-gray-700 opacity-60 grayscale-[50%]'}`}
               >
                 <div className={`${viewMode === 'list' ? 'text-4xl mr-4' : 'text-5xl mb-3 text-center pt-2'}`}>{reward.emoji || '🎁'}</div>
@@ -134,7 +151,6 @@ export default function ChildRewards() {
                 </div>
 
                 {!isAvailable && (
-                  // 🌟 暗黑模式下的遮罩层和文案背景
                   <div className="absolute inset-0 bg-white/50 dark:bg-black/40 flex items-center justify-center backdrop-blur-[1px] transition-colors">
                     <span className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                       {!hasStock ? t('api.ERR_OUT_OF_STOCK', '库存不足') : t('child.locked', '积分不够')}
@@ -161,24 +177,38 @@ export default function ChildRewards() {
               </button>
 
               <div className="text-7xl text-center mb-2 mt-4 animate-[bounce_2s_infinite]">{selectedReward.emoji || '🎁'}</div>
-              <h3 className="text-2xl font-black text-center text-gray-900 dark:text-white mb-2 transition-colors">{t('child.confirm_title', '确认兑换？')}</h3>
+              <h3 className="text-2xl font-black text-center text-gray-900 dark:text-white mb-2 transition-colors">想要这个奖励吗？</h3>
               
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mb-6 mt-2 border border-gray-100 dark:border-gray-700 transition-colors">
-                <p className="text-center text-gray-600 dark:text-gray-300 font-medium text-sm leading-relaxed transition-colors">
-                  {t('child.confirm_desc', { name: selectedReward.name, cost: selectedReward.cost, defaultValue: `兑换「{{name}}」将消耗你 {{cost}} 个金币哦！` })}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mt-2 border border-gray-100 dark:border-gray-700 transition-colors">
+                <p className="text-center text-gray-600 dark:text-gray-300 font-medium text-sm leading-relaxed transition-colors mb-3">
+                  向家长发送「{selectedReward.name}」的兑换申请，审核通过后将扣除 <span className="text-pink-500 font-black">{selectedReward.cost} 🪙</span>
                 </p>
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm font-bold transition-colors">
+                
+                {/* 留言文本框 */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 pt-3 pointer-events-none text-gray-400">
+                    <MessageSquare size={16} />
+                  </div>
+                  <textarea 
+                    value={evidenceText}
+                    onChange={e => setEvidenceText(e.target.value)}
+                    placeholder="给家长留个言吧（选填）"
+                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-pink-500 resize-none h-14 transition-colors dark:text-white"
+                  />
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm font-bold transition-colors">
                   <span className="text-gray-500 dark:text-gray-400">{t('child.current_balance', '当前余额：')}</span>
                   <span className="text-blue-500 dark:text-blue-400">{myCoins} 🪙</span>
                 </div>
               </div>
 
-              <div className="flex space-x-3">
+              <div className="flex space-x-3 mt-4">
                 <button disabled={isRedeeming} onClick={() => setSelectedReward(null)} className="flex-1 py-4 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all">
                   {t('child.btn_cancel', '我再想想')}
                 </button>
                 <button disabled={isRedeeming} onClick={handleRedeem} className="flex-1 py-4 rounded-2xl bg-pink-500 text-white font-bold active:bg-pink-600 active:scale-95 transition-all shadow-lg shadow-pink-200 dark:shadow-none flex justify-center items-center relative overflow-hidden">
-                  {isRedeeming ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="relative z-10">{t('child.btn_confirm_redeem', '确定兑换')}</span><div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full" /></>}
+                  {isRedeeming ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="relative z-10">发送申请</span><div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full" /></>}
                 </button>
               </div>
             </div>

@@ -1,4 +1,4 @@
-// src/queues/rewardsHandler.js
+// backend/src/queues/rewardsHandler.js
 import { sendTgMessage, sendTgMessageWithKeyboard } from '../utils/telegram.js';
 import { getTenantAccessToken, sendLarkMessage, sendLarkCard } from '../utils/lark.js';
 import { sendAlipayMessage } from '../utils/alipay.js'; 

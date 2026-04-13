@@ -21,6 +21,8 @@ export interface Child {
   avatar: string;
   balance: number;
   has_new_achievement?: number;
+  score_gained?: number;
+  score_spent?: number;
 }
 
 export interface UserProfile {

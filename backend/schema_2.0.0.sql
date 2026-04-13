@@ -140,22 +140,10 @@ CREATE TABLE IF NOT EXISTS rewards (
   is_deleted BOOLEAN DEFAULT 0,        -- 软删除标记
   FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
 );
-
-CREATE TABLE IF NOT EXISTS redemptions (
-  id TEXT PRIMARY KEY,
-  family_id TEXT NOT NULL,
-  child_id TEXT NOT NULL,
-  reward_id TEXT,                  
-  reward_snapshot TEXT,            -- 存入商品快照，防改价/删除
-  cost INTEGER NOT NULL,
-  status TEXT DEFAULT 'pending',   -- 'pending', 'approved', 'rejected'
-  operator_id TEXT,                -- 谁申请的
-  approved_by TEXT,                -- 谁审批的
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
-  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
-);
+-- 1. 加速前端拉取商品列表 (过滤已删除商品)
+CREATE INDEX IF NOT EXISTS idx_rewards_family_deleted ON rewards(family_id, is_deleted);
+-- 2. 加速按分类筛选商品
+CREATE INDEX IF NOT EXISTS idx_rewards_category ON rewards(family_id, category_id);
 
 -- 分类体系 (新功能)
 CREATE TABLE IF NOT EXISTS categories (
@@ -166,18 +154,39 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-
--- 1. 加速前端拉取商品列表 (过滤已删除商品)
-CREATE INDEX IF NOT EXISTS idx_rewards_family_deleted ON rewards(family_id, is_deleted);
-
--- 2. 加速按分类筛选商品
-CREATE INDEX IF NOT EXISTS idx_rewards_category ON rewards(family_id, category_id);
-
 -- 3. 加速分类列表的排序返回
 CREATE INDEX IF NOT EXISTS idx_categories_family_sort ON categories(family_id, sort_order);
 
 -- 4. 给分类表添加一个 emoji 字段，方便前端展示时有个小图标
 ALTER TABLE categories ADD COLUMN emoji TEXT DEFAULT '🏷️';
+
+-- 审批表：记录需要家长审批的任务（如自由申报或需要审批的奖励兑换）
+CREATE TABLE IF NOT EXISTS approvals (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL,
+  child_id TEXT NOT NULL,
+  rule_id TEXT,                     -- 如果是自由申报则为 NULL
+  title TEXT NOT NULL,              -- 任务名称
+  evidence_text TEXT,               -- 孩子提交的文字留言
+  evidence_image TEXT,              -- 凭证图片 URL
+  requested_points INTEGER NOT NULL,-- 申请的初始分值
+  status TEXT DEFAULT 'pending',    -- pending, approved, rejected
+  reviewer_id TEXT,                 -- 审核人（家长）的 ID
+  reject_reason TEXT,               -- 驳回理由
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
+);
+
+-- 追加类型字段，默认为 task（任务）
+ALTER TABLE approvals ADD COLUMN type TEXT DEFAULT 'task';
+
+-- 追加关联的商品ID字段（如果是任务则为空）
+ALTER TABLE approvals ADD COLUMN reward_id TEXT;
+
+-- 5. 加速查询孩子的待审批任务
+CREATE INDEX IF NOT EXISTS idx_approvals_family_status ON approvals(family_id, status);
 
 -- ==========================================
 -- 5. 目标与成就体系
