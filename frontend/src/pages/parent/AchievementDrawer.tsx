@@ -48,7 +48,7 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-colors"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* 手动颁发入口 */}
           {!showForm ? (
             <button 

@@ -105,6 +105,13 @@ approvals.put('/:id/review', async (c) => {
         }
       } else {
         pointsToAward = Math.abs(pointsToAward);
+        // 🌟 新增逻辑：如果是日常任务的打卡申请，联动修改打卡状态为已完成
+        if (approval.rule_id) {
+          await c.env.DB.prepare(`
+            UPDATE routine_logs SET status = 'completed' 
+            WHERE routine_id = ? AND child_id = ? AND status = 'pending'
+          `).bind(approval.rule_id, approval.child_id).run();
+        }
       }
       
       // 触发 DO

@@ -8,6 +8,7 @@ import ScoreTrendChart from '../../components/ScoreTrendChart';
 import { Activity,Target, ArrowRight, Camera } from 'lucide-react';
 import ChildGoalDrawer from './ChildGoalDrawer';
 import ChildSubmitTaskDrawer from './ChildSubmitTaskDrawer'; // 引入组件
+import ChildRoutinesWidget from './ChildRoutinesWidget'; // 引入组件
 
 export interface ChildDetail {
   id: string;
@@ -118,6 +119,10 @@ const ChildDashboard: React.FC = () => {
           </button>
         </div>
       </section>
+
+      {/* 🌟 新增：今日习惯打卡组件，放在个人信息下方，增加曝光率 */}
+      <ChildRoutinesWidget />
+      
       {/* 2. 🌟 愿望进度卡片 (Widget) */}
       <section 
         onClick={() => setGoalDrawerOpen(true)}

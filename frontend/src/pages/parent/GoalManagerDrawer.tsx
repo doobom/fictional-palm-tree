@@ -61,18 +61,6 @@ export default function GoalManagerDrawer({ isOpen, onClose, child, onSuccess }:
   if (!isOpen || !child) return null;
 
   return createPortal(
-    /*
-    <div className="fixed inset-0 z-[10000] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-gray-50 dark:bg-gray-900 rounded-t-[32px] max-h-[85vh] flex flex-col shadow-2xl">
-        <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 rounded-t-[32px]">
-          <div className="flex items-center gap-2">
-            <Target className="text-blue-500" size={20} />
-            <h3 className="font-black text-gray-900 dark:text-white">{child.name} 的愿望清单</h3>
-          </div>
-          <button onClick={onClose} className="p-2 text-gray-400"><X size={20} /></button>
-        </div>
-        */
     <div className={`fixed inset-0 z-[9999] flex flex-col justify-end ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       <div className={`absolute inset-0 bg-black/40 dark:bg-black/60 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
       
@@ -91,7 +79,10 @@ export default function GoalManagerDrawer({ isOpen, onClose, child, onSuccess }:
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* 创建目标表单 */}
           {!showForm ? (
-            <button onClick={() => setShowForm(true)} className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl flex items-center justify-center gap-2 text-gray-500 font-bold hover:bg-white dark:hover:bg-gray-800 transition-all">
+            <button 
+              onClick={() => setShowForm(true)} 
+              className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl flex items-center justify-center gap-2 text-gray-500 font-bold hover:bg-white dark:hover:bg-gray-800 transition-all"
+            >
               <Plus size={20} /> 添加新愿望
             </button>
           ) : (

@@ -1,9 +1,13 @@
 // frontend/src/pages/parent/HomeView.tsx
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Minus, CheckSquare, RefreshCw, 
-    Star, ArrowRightLeft, ReceiptText, TrendingUp, 
-    BarChart3, Trophy, Target } from 'lucide-react';
+
+import { 
+  Plus, Minus, CheckSquare, RefreshCw, 
+  Star, ArrowRightLeft, ReceiptText, TrendingUp, 
+  BarChart3, Trophy, Target, CalendarClock 
+} from 'lucide-react';
+
 import { useUserStore, Child, Family } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import ScoreActionDrawer from './ScoreActionDrawer';
@@ -14,6 +18,9 @@ import StatisticsDrawer from './StatisticsDrawer';
 import FamilyStatsDrawer from './FamilyStatsDrawer';
 import AchievementDrawer from './AchievementDrawer';
 import GoalManagerDrawer from './GoalManagerDrawer';
+import RoutineManagerDrawer from './RoutineManagerDrawer';
+
+import ParentRoutinesWidget from './ParentRoutinesWidget';
 
 export default function HomeView() {
   const { t } = useTranslation();
@@ -61,7 +68,11 @@ export default function HomeView() {
     setSelectedChildForGoal(child);
     setGoalManagerOpen(true);
   };
-
+  // 🌟 9. 增加控制常规任务管理抽屉的 State
+  const [routineManagerOpen, setRoutineManagerOpen] = useState(false);
+  const openRoutineManager = () => {
+    setRoutineManagerOpen(true);
+  };
 
   const fetchDashboardData = async () => {
     if (!currentFamilyId) return;
@@ -119,6 +130,12 @@ export default function HomeView() {
              className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all active:scale-95"
            >
              <BarChart3 size={20} />
+           </button>
+           <button 
+             onClick={() => setRoutineManagerOpen(true)}
+             className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all active:scale-95"
+           >
+             <CalendarClock size={20} />
            </button>
           <button onClick={fetchDashboardData} className="p-2 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 active:rotate-180 transition-all">
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
@@ -200,7 +217,12 @@ export default function HomeView() {
       </section>
 
       {/* =======================
-          2. 家庭规则/任务看板
+          2. 今日习惯打卡板
+      ======================= */}
+      <ParentRoutinesWidget />
+
+      {/* =======================
+          3. 家庭规则/任务看板
       ======================= */}
       <section className="pt-4">
         <div className="flex justify-between items-center mb-4">
@@ -224,7 +246,10 @@ export default function HomeView() {
           <div className="space-y-3">
             {rules.map(rule => (
               /* 🌟 列表卡片适配 */
-              <div key={rule.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+              <div 
+                key={rule.id} 
+                className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300"
+              >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{rule.emoji || '⭐'}</span>
                   <div>
@@ -289,6 +314,11 @@ export default function HomeView() {
         onClose={() => setGoalManagerOpen(false)} 
         child={selectedChildForGoal}
         onSuccess={fetchDashboardData}
+      />
+      {/* 🌟 9. 挂载常规任务管理抽屉 */}
+      <RoutineManagerDrawer 
+        isOpen={routineManagerOpen} 
+        onClose={() => setRoutineManagerOpen(false)} 
       />
     </div>
   );

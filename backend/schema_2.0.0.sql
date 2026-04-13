@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS children (
 -- 增加孩子表的 birthday 字段，类型改为 TEXT 以适应不同格式的日期输入（如 "2015-06-01" 或 "2015/06/01"）
 ALTER TABLE children ADD COLUMN birthday TEXT;
 
+-- 2. 在孩子表增加红点状态位
+ALTER TABLE children ADD COLUMN has_new_achievement BOOLEAN DEFAULT 0;
+
 -- ==========================================
 -- 2. 鉴权与绑定表
 -- ==========================================
@@ -154,11 +157,12 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 4. 给分类表添加一个 emoji 字段，方便前端展示时有个小图标
+ALTER TABLE categories ADD COLUMN emoji TEXT DEFAULT '🏷️';
+
 -- 3. 加速分类列表的排序返回
 CREATE INDEX IF NOT EXISTS idx_categories_family_sort ON categories(family_id, sort_order);
 
--- 4. 给分类表添加一个 emoji 字段，方便前端展示时有个小图标
-ALTER TABLE categories ADD COLUMN emoji TEXT DEFAULT '🏷️';
 
 -- 审批表：记录需要家长审批的任务（如自由申报或需要审批的奖励兑换）
 CREATE TABLE IF NOT EXISTS approvals (
@@ -232,9 +236,6 @@ ALTER TABLE achievements ADD COLUMN is_manual BOOLEAN DEFAULT 0;
 ALTER TABLE achievements ADD COLUMN manual_name TEXT;
 ALTER TABLE achievements ADD COLUMN manual_emoji TEXT;
 
--- 2. 在孩子表增加红点状态位
-ALTER TABLE children ADD COLUMN has_new_achievement BOOLEAN DEFAULT 0;
-
 -- goals 表中获取孩子的活跃目标非常高频
 CREATE INDEX IF NOT EXISTS idx_goals_child_status ON goals(child_id, status);
 
@@ -252,3 +253,35 @@ CREATE TABLE IF NOT EXISTS processed_updates (
 
 -- 可选：为了防止这张表无限膨胀，我们只关心最近的防重放。
 -- 以后你可以写个定时任务（Cron Trigger）定期删除 7 天前的记录。
+
+-- ==========================================
+-- 6. 常规任务与打卡系统
+-- ==========================================
+
+-- 1. 常规任务模板表
+CREATE TABLE IF NOT EXISTS routines (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL,
+  child_id TEXT,                    -- 绑定的孩子ID (如果不填就是全家通用)
+  name TEXT NOT NULL,               -- 任务名 (如 "按时起床")
+  emoji TEXT DEFAULT '✅',
+  points INTEGER NOT NULL,          -- 奖励分数
+  frequency TEXT DEFAULT 'daily',   -- 'daily'(每天), 'weekly'(按星期)
+  repeat_days TEXT,                 -- JSON 数组, 如 '[1,2,3,4,5]' 代表工作日
+  auto_approve BOOLEAN DEFAULT 1,   -- 1=直接发分，0=进审批中心
+  status TEXT DEFAULT 'active',     -- 'active' 或 'paused'
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
+);
+
+-- 2. 每日打卡记录表
+CREATE TABLE IF NOT EXISTS routine_logs (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL,
+  routine_id TEXT NOT NULL,
+  child_id TEXT NOT NULL,
+  date_str TEXT NOT NULL,           -- 打卡日期 'YYYY-MM-DD' (由前端按本地时区生成)
+  status TEXT DEFAULT 'completed',  -- 'completed'(已完成/自动发分), 'pending'(待审核)
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(routine_id, child_id, date_str) -- 🌟 核心防刷机制：同一天只能打卡一次
+);
