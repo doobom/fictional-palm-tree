@@ -33,19 +33,6 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
   };
 
   return createPortal(
-    /*
-    <div className="fixed inset-0 z-[10000] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative bg-gray-50 dark:bg-gray-900 rounded-t-[32px] max-h-[85vh] flex flex-col transition-all shadow-2xl overflow-hidden">
-        {/* 顶部栏 *//*}
-        <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 transition-colors">
-          <div className="flex items-center gap-2">
-            <Trophy className="text-yellow-500" size={20} />
-            <h3 className="font-black text-gray-900 dark:text-white">{child.name} 的成就墙</h3>
-          </div>
-          <button onClick={onClose} className="p-2 text-gray-400"><X size={20} /></button>
-        </div>*/
     <div className={`fixed inset-0 z-[9999] flex flex-col justify-end ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       <div className={`absolute inset-0 bg-black/40 dark:bg-black/60 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
       

@@ -1,7 +1,9 @@
 // frontend/src/pages/parent/HomeView.tsx
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Minus, CheckSquare, RefreshCw, Star, ArrowRightLeft, ReceiptText, TrendingUp, BarChart3, Trophy } from 'lucide-react';
+import { Plus, Minus, CheckSquare, RefreshCw, 
+    Star, ArrowRightLeft, ReceiptText, TrendingUp, 
+    BarChart3, Trophy, Target } from 'lucide-react';
 import { useUserStore, Child, Family } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import ScoreActionDrawer from './ScoreActionDrawer';
@@ -11,6 +13,7 @@ import HistoryDrawer from './HistoryDrawer';
 import StatisticsDrawer from './StatisticsDrawer';
 import FamilyStatsDrawer from './FamilyStatsDrawer';
 import AchievementDrawer from './AchievementDrawer';
+import GoalManagerDrawer from './GoalManagerDrawer';
 
 export default function HomeView() {
   const { t } = useTranslation();
@@ -51,6 +54,14 @@ export default function HomeView() {
     setSelectedChildForAch(child);
     setAchDrawerOpen(true);
   };
+  // 🌟 8. 增加控制目标管理抽屉的 State
+  const [goalManagerOpen, setGoalManagerOpen] = useState(false);
+  const [selectedChildForGoal, setSelectedChildForGoal] = useState<any>(null);
+  const openGoalManager = (child: any) => {
+    setSelectedChildForGoal(child);
+    setGoalManagerOpen(true);
+  };
+
 
   const fetchDashboardData = async () => {
     if (!currentFamilyId) return;
@@ -123,9 +134,24 @@ export default function HomeView() {
             {childrenList.map((child: Child) => (
               /* 🌟 卡片颜色适配 */
               <div key={child.id} className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-colors duration-300">
+                {/* 
+                  🌟 右上角操作按钮适配
+                    右上角按钮图标：
+                        第一排第一个图标，className 用 top-4 right-4 控制位置。
+                        第一排第二个图标，className 用 top-4 right-12 控制位置。
+
+                        第二排第一个图标，className 用 top-12 right-4 控制位置。
+                        第三排第一个图标，className 用 top-20 right-4 控制位置。
+                */}
+                <button 
+                    onClick={() => openStats(child)}
+                    className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                    >
+                    <TrendingUp size={20} />
+                </button>
                 <button 
                     onClick={() => openAchievements(child)}
-                    className="absolute top-4 right-12 p-2 text-gray-400 hover:text-yellow-500 transition-colors"
+                    className="absolute top-12 right-4 p-2 text-gray-400 hover:text-yellow-500 transition-colors"
                     >
                     <Trophy size={18} />
                     {/* 🌟 红点提示 */}
@@ -134,10 +160,10 @@ export default function HomeView() {
                     )}
                 </button>
                 <button 
-                    onClick={() => openStats(child)}
-                    className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                    onClick={() => openGoalManager(child)}
+                    className="absolute top-20 right-4 p-2 text-gray-400 hover:text-blue-500 transition-colors"
                     >
-                    <TrendingUp size={20} />
+                    <Target size={20} />
                 </button>
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-4xl bg-gray-50 dark:bg-gray-700 p-2 rounded-2xl shadow-sm transition-colors">{child.avatar}</span>
@@ -256,6 +282,13 @@ export default function HomeView() {
         isOpen={achDrawerOpen} 
         onClose={() => setAchDrawerOpen(false)} 
         child={selectedChildForAch}
+      />
+      {/* 🌟 8. 挂载目标管理抽屉 */}
+      <GoalManagerDrawer 
+        isOpen={goalManagerOpen} 
+        onClose={() => setGoalManagerOpen(false)} 
+        child={selectedChildForGoal}
+        onSuccess={fetchDashboardData}
       />
     </div>
   );

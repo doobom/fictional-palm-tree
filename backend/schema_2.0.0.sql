@@ -121,6 +121,7 @@ ALTER TABLE history ADD COLUMN is_revoked BOOLEAN DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_history_daily_limit ON history(child_id, rule_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_history_family_time ON history(family_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_limit_lookup ON history(child_id, rule_id, created_at);
+
 -- ==========================================
 -- 4. 兑换商品体系
 -- ==========================================
@@ -156,7 +157,7 @@ CREATE TABLE IF NOT EXISTS redemptions (
   FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
 );
 
--- 6. 分类体系 (新功能)
+-- 分类体系 (新功能)
 CREATE TABLE IF NOT EXISTS categories (
   id TEXT PRIMARY KEY,
   family_id TEXT NOT NULL,
@@ -184,7 +185,7 @@ ALTER TABLE categories ADD COLUMN emoji TEXT DEFAULT '🏷️';
 
 -- 目标系统：家长为孩子设定的任务（如：本周获得100分奖励去游乐场）
 CREATE TABLE IF NOT EXISTS goals (
-id TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   family_id TEXT NOT NULL,
   child_id TEXT NOT NULL,
   name TEXT NOT NULL,             -- 目标名称，如“周末去吃大餐”
@@ -198,6 +199,9 @@ id TEXT PRIMARY KEY,
   FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
   FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
 );
+
+-- 给目标表添加一个 emoji 字段，家长在创建目标时可以选择一个图标，前端展示更生动
+ALTER TABLE goals ADD COLUMN emoji TEXT DEFAULT '🎯';
 
 -- 成就系统：系统自动记录的勋章
 CREATE TABLE IF NOT EXISTS achievements (

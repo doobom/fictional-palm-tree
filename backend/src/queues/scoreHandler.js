@@ -5,6 +5,7 @@ import { sendTgMessage } from '../utils/telegram.js';
 /**
  * 核心处理器：处理积分变动后的后续逻辑
  */
+/*
 export async function handleScoreChangeTasks(data, env) {
   const { childId, familyId, points, operatorId } = data;
 
@@ -12,6 +13,17 @@ export async function handleScoreChangeTasks(data, env) {
   await updateGoalsProgress(childId, familyId, env);
 
   // 2. 检查成就 (Achievements) 解锁
+  await checkAchievements(childId, familyId, env);
+}
+*/
+// ⚠️ 注意：还需要在 handleScoreChangeTasks 中修改传参
+export async function handleScoreChangeTasks(data, env) {
+  const { childId, familyId } = data;
+
+  // 🌟 修改：把完整的 data 传给目标更新函数，因为它需要 data.points
+  await updateGoalsProgress(data, env); 
+
+  // 2. 检查成就解锁
   await checkAchievements(childId, familyId, env);
 }
 // 🌟 1. 抽离出一个纯元数据字典，专门给前端展示成就墙用
@@ -38,41 +50,61 @@ export const ACHIEVEMENTS_META = [
   { key: 'big_win', name: '盆满钵满', emoji: '🐳', desc: '单次任务获得超过 30 积分' }
 ];
 /**
- * 任务 A：更新活跃目标的当前分数
- * 逻辑：重新计算该孩子自目标创建以来的有效积分总和
+ * 任务 A：增量更新活跃目标的当前分数
+ * 逻辑：只对 status = 'active' 的目标累加加分项
  */
-async function updateGoalsProgress(childId, familyId, env) {
-  // 获取该孩子所有处于 'active' 状态的目标
-  const { results: activeGoals } = await env.DB.prepare(`
-    SELECT id, target_points, name, created_at 
-    FROM goals 
-    WHERE child_id = ? AND family_id = ? AND status = 'active'
-  `).bind(childId, familyId).all();
+// backend/src/queues/scoreHandler.js
 
-  for (const goal of activeGoals) {
-    // 聚合该目标创建后的所有非撤销流水
-    const stats = await env.DB.prepare(`
-      SELECT SUM(points) as total FROM history 
-      WHERE child_id = ? AND family_id = ? 
-      AND created_at >= ? AND reverted = 0
-    `).bind(childId, familyId, goal.created_at).first();
+async function updateGoalsProgress(data, env) {
+  const { childId, points, familyId, isUndo } = data;
 
-    const currentPoints = stats?.total || 0;
-    const isCompleted = currentPoints >= goal.target_points;
+  // 1. 🌟 精准过滤：只处理正常的加分，以及“对加分项的撤回”
+  if (!isUndo && points <= 0) return; // 正常的惩罚扣分，不影响攒愿望
+  if (isUndo && points >= 0) return;  // 撤回了惩罚，也不影响攒愿望
 
-    // 更新目标状态
-    await env.DB.prepare(`
-      UPDATE goals SET 
-        current_points = ?, 
-        status = ?, 
-        updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `).bind(currentPoints, isCompleted ? 'completed' : 'active', goal.id).run();
+  try {
+    // 2. 查找最近活跃的目标 (包含 active 和刚刚 completed 还没兑换的)
+    const goal = await env.DB.prepare(`
+      SELECT id, name, current_points, target_points, status 
+      FROM goals 
+      WHERE child_id = ? AND status IN ('active', 'completed')
+      ORDER BY updated_at DESC LIMIT 1
+    `).bind(childId).first();
 
-    // 如果刚完成，触发推送通知
-    if (isCompleted) {
-      await notifyAdmins(familyId, `🎉 目标达成！孩子完成了目标：【${goal.name}】`, env);
+    if (!goal) return;
+
+    // 3. 计算新分数 (最低为0，最高为目标分)
+    const newPoints = Math.max(0, Math.min(goal.current_points + points, goal.target_points));
+    let newStatus = goal.status;
+    let shouldBroadcast = false;
+
+    // 🌟 状态翻转逻辑：
+    if (newPoints >= goal.target_points && goal.status === 'active') {
+      newStatus = 'completed'; // 达成目标
+      shouldBroadcast = true;
+    } else if (newPoints < goal.target_points && goal.status === 'completed') {
+      newStatus = 'active'; // 撤回导致分数跌落，取消达成状态
     }
+
+    // 4. 更新数据库
+    await env.DB.prepare(`
+      UPDATE goals 
+      SET current_points = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).bind(newPoints, newStatus, goal.id).run();
+
+    // 5. 🌟 愿望达成专属广播！不再借用成就接口
+    if (shouldBroadcast) {
+      await notifyAdmins(familyId, `🎉 目标达成！孩子完成了目标：【${goal.name}】`, env);
+      const doId = env.FAMILY_MANAGER.idFromName(familyId);
+      const doObj = env.FAMILY_MANAGER.get(doId);
+      await doObj.fetch(new Request(`http://do/internal/broadcast-goal`, {
+         method: 'POST',
+         body: JSON.stringify({ childId, goalName: goal.name })
+      }));
+    }
+  } catch (error) {
+    console.error('[Queue Error] Update goals failed:', error);
   }
 }
 

@@ -31,6 +31,11 @@ export class FamilyManager {
       this.broadcast({ type: "ACHIEVEMENT_UNLOCKED", payload: data });
       return new Response("OK");
     }
+    if (url.pathname === "/internal/broadcast-goal") {
+      const data = await request.json();
+      this.broadcast({ type: "GOAL_COMPLETED", payload: data });
+      return new Response("OK");
+    }
 
     return new Response("Not Found", { status: 404 });
   }
@@ -187,11 +192,24 @@ export class FamilyManager {
     // 执行数据库事务
     await this.env.DB.batch(stmts);
 
+    // 🌟 新增：撤回操作也要推入 MSG_QUEUE，让目标进度能回滚
+    // 传入负分的 points，并标记 isUndo = true
+    if (this.env.MSG_QUEUE) {
+      await this.env.MSG_QUEUE.send({
+        action: 'CHECK_ACHIEVEMENTS',
+        childId: log.child_id,
+        familyId: log.family_id,
+        points: -log.points, // 翻转分值，加分变扣分
+        isUndo: true             // 专门标记这是一个撤回操作
+      });
+    }
+    
     // 广播撤回事件
     this.broadcast({
       type: "SCORE_UNDONE",
       payload: { childId: log.child_id, points: -log.points, operatorId, timestamp: Date.now() }
     });
+
 
     return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
   }

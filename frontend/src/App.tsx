@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast'; // 🌟 核心修复 1：引入 Toaster
 import { useUserStore } from './store';
 import service, { ApiResponse } from './api/request';
+import { appToast } from './utils/toast';
 
 // 页面组件导入
 import ParentLayout from './pages/parent/ParentDashboard';
@@ -126,6 +127,14 @@ const App: React.FC = () => {
               setChildrenList(newList);
             }
             break; 
+          }
+
+          case 'GOAL_COMPLETED': {
+            const { childId, goalName } = data.payload;
+            // 🌟 触发专属提示。如果当前家长正在看这个孩子，可以直接弹窗
+            // 或者简单点，弹一个全局 Toast，后续你甚至可以接入撒花特效
+            appToast.success(`🎉 惊喜！${goalName} 愿望已经攒满啦！快去兑换吧！`);
+            break;
           }
         }
       } catch (e) {

@@ -5,7 +5,8 @@ import { usePlatformApp } from '../../hooks/usePlatformApp';
 import service, { ApiResponse } from '../../api/request'; 
 import { appToast } from '../../utils/toast';
 import ScoreTrendChart from '../../components/ScoreTrendChart';
-import { Activity } from 'lucide-react';
+import { Activity,Target, ArrowRight } from 'lucide-react';
+import ChildGoalDrawer from './ChildGoalDrawer';
 
 export interface ChildDetail {
   id: string;
@@ -49,6 +50,22 @@ const ChildDashboard: React.FC = () => {
     window.location.hash = '#/child/rewards'; // 放开注释，允许跳转
   };
 
+  const [activeGoal, setActiveGoal] = useState<any>(null);
+  const [goalDrawerOpen, setGoalDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    fetchActiveGoal();
+  }, []);
+
+  const fetchActiveGoal = async () => {
+    const res = await service.get<any, ApiResponse>('/goals');
+    if (res.success) {
+      // 找到当前活跃或已达成待兑换的目标
+      const active = res.data.find((g: any) => g.status === 'active' || g.status === 'completed' || g.status === 'pending');
+      setActiveGoal(active);
+    }
+  };
+
   if (loading && !data) {
     return (
       // 🌟 加载页暗黑适配
@@ -88,6 +105,40 @@ const ChildDashboard: React.FC = () => {
             <span className="text-xl opacity-90">{currentFamily?.point_emoji || '🪙'}</span>
           </div>
         </div>
+      </section>
+      {/* 2. 🌟 愿望进度卡片 (Widget) */}
+      <section 
+        onClick={() => setGoalDrawerOpen(true)}
+        className="bg-white dark:bg-gray-800 rounded-[32px] p-6 shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Target className="text-blue-500" size={20} />
+            <h2 className="text-lg font-black dark:text-white">专注心愿</h2>
+          </div>
+          <ArrowRight className="text-gray-400" size={20} />
+        </div>
+
+        {activeGoal ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <span className="text-5xl">{activeGoal.emoji}</span>
+              <div className="flex-1">
+                <p className="font-black text-gray-900 dark:text-white text-xl">{activeGoal.name}</p>
+                <p className="text-gray-500 font-bold text-sm">已攒 {activeGoal.current_points} / {activeGoal.target_points} 分</p>
+              </div>
+            </div>
+            {/* 炫酷的进度条 */}
+            <div className="w-full h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000 shadow-lg" 
+                style={{ width: `${Math.min(100, (activeGoal.current_points / activeGoal.target_points) * 100)}%` }} 
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-400 font-bold py-4 text-center">还没有选定愿望，点击去许愿吧 ✨</p>
+        )}
       </section>
 
       {/* 🌟 新增：统计图表模块 */}
@@ -153,6 +204,12 @@ const ChildDashboard: React.FC = () => {
           ✨ 继续加油！再获得 50 {currentFamily?.point_name || '积分'} 就能兑换惊喜啦！
         </p>
       </div>
+
+      {/* 目标管理抽屉 */}
+      <ChildGoalDrawer isOpen={goalDrawerOpen} onClose={() => {
+        setGoalDrawerOpen(false);
+        fetchActiveGoal();
+      }} />
     </div>
   );
 };
