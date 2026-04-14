@@ -75,3 +75,46 @@ export async function editMessageText(token, chatId, messageId, newText) {
     })
   });
 }
+
+/**
+ * 基础方法：向指定的 Telegram 聊天发送文档 (文件)
+ */
+export async function sendTgDocument(chatId, fileBlob, fileName, caption, botToken) {
+  if (!botToken) throw new Error("Bot token 未配置");
+
+  const formData = new FormData();
+  formData.append('chat_id', chatId);
+  formData.append('document', fileBlob, fileName);
+  if (caption) formData.append('caption', caption);
+
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!res.ok) throw new Error(`TG 发送文档失败: ${await res.text()}`);
+  return res.json();
+}
+
+/**
+ * 业务方法：向系统超级管理员 (ROOT) 发送系统级通知
+ */
+export async function notifyRootAdmins(text, env) {
+  const adminIdsStr = env.ROOT_ADMIN_TG_IDS;
+  const botToken = env.ROOT_BOT_TOKEN;
+  
+  if (!adminIdsStr || !botToken) {
+    console.warn("未配置 ROOT_ADMIN_TG_IDS 或 ROOT_BOT_TOKEN，跳过发送系统通知");
+    return;
+  }
+
+  // 按逗号分割，过滤掉空项
+  const adminIds = adminIdsStr.split(',').map(id => id.trim()).filter(Boolean);
+  
+  // 并发发送给所有配置的管理员，就算其中一个发送失败，也不影响其他管理员接收
+  await Promise.all(
+    adminIds.map(chatId => 
+      sendTgMessage(chatId, text, botToken).catch(err => console.error(`[TG 通知失败] ChatID: ${chatId}`, err))
+    )
+  );
+}

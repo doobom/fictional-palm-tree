@@ -12,17 +12,18 @@ import BottomDrawer from '../../components/BottomDrawer';
 import Section from '../../components/Section';
 import CategoryManagerDrawer from './CategoryManagerDrawer';
 
+import JSZip from 'jszip'; // 🌟 新增 ZIP 库
 import { 
   Settings, Baby, ShieldCheck, Copy, Smartphone, Plus, 
   UserCircle, Tags, Trash2, HelpCircle, Info, MessageSquare, ChevronRight, 
-  Globe, Calendar, MapPin, Edit3, Sun 
-} from 'lucide-react'; 
+  Globe, Calendar, MapPin, Edit3, Sun, Database, DownloadCloud, UploadCloud, AlertTriangle // 🌟 新增 Database 等图标
+} from 'lucide-react';
 
 export default function SettingsView() {
   const { currentFamilyId, families, childrenList, setChildrenList } = useUserStore();
   const { i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [openSection, setOpenSection] = useState<'profile' | 'basic' | 'categories' | 'children' | 'members'>('profile');
+  const [openSection, setOpenSection] = useState<'profile' | 'basic' | 'categories' | 'children' | 'members' | 'backup'>('profile'); // 增加 backup 枚举
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
@@ -183,6 +184,113 @@ export default function SettingsView() {
   const displayAvatar = currentUserMember?.avatar || userProfile?.avatar || '🧑';
   const currentLangLabel = SUPPORTED_LANGUAGES.find(l => l.code === profileData.locale)?.label || '简体中文';
 
+  // 🌟 备份与恢复状态
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isProcessingBackup, setIsProcessingBackup] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [restoreWarningOpen, setRestoreWarningOpen] = useState(false);
+
+  // 🌟 导出备份 (智能识别环境)
+  const handleExportBackup = async () => {
+    setIsProcessingBackup(true);
+    const toastId = toast.loading('正在打包您的家庭数据...');
+    try {
+      // 检查是否在 Telegram 环境内
+      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      
+      if (tgUser && tgUser.id) {
+        // 🚀 Telegram 环境：直接发消息到聊天框
+        const res = await service.post<any, ApiResponse>('/system/export-telegram', { tgUserId: tgUser.id });
+        if (res.success) {
+          toast.dismiss(toastId);
+          appToast.success('✅ 备份文件已发送到您的 Telegram 聊天中！请关闭应用去对话框查看。', { duration: 5000 });
+        }
+      } else {
+        // 🌐 普通浏览器环境：正常打包并触发浏览器 ZIP 下载
+        const res = await service.get<any, ApiResponse>('/system/export');
+        if (res.success && res.data) {
+          const zip = new JSZip();
+          const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+          const fileName = `FamilyPoints_backup_${currentFamilyId}_${dateStr}.zip`;
+
+          zip.file('backup.json', JSON.stringify(res.data, null, 2));
+          const blob = await zip.generateAsync({ type: 'blob' });
+
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.click();
+          window.URL.revokeObjectURL(url);
+          
+          toast.dismiss(toastId);
+          appToast.success('备份已成功下载！');
+        }
+      }
+    } catch (e) {
+      toast.dismiss(toastId);
+      appToast.error('导出失败，请重试');
+    } finally {
+      setIsProcessingBackup(false);
+    }
+  };
+
+  // 🌟 选定导入文件
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setRestoreWarningOpen(true); // 打开红色警告弹窗
+    }
+    e.target.value = ''; // 清空 input 允许重复选同一个文件
+  };
+
+  // 🌟 确认执行恢复 (支持 ZIP 和 JSON)
+  const executeRestore = async () => {
+    if (!importFile) return;
+    setIsProcessingBackup(true);
+    const toastId = toast.loading('正在解析并恢复数据...');
+    
+    try {
+      let backupData;
+      const fileName = importFile.name.toLowerCase();
+
+      // 判断文件类型进行处理
+      if (fileName.endsWith('.zip')) {
+        const zip = new JSZip();
+        const unzipped = await zip.loadAsync(importFile);
+        const jsonFiles = Object.keys(unzipped.files).filter(name => name.endsWith('.json'));
+        if (jsonFiles.length === 0) throw new Error("ZIP 文件中未找到 .json 备份文件！");
+        const jsonStr = await unzipped.file(jsonFiles[0])?.async('string');
+        backupData = JSON.parse(jsonStr!);
+      } else if (fileName.endsWith('.json')) {
+        const text = await importFile.text();
+        backupData = JSON.parse(text);
+      } else {
+        throw new Error("不支持的文件格式，请上传 .zip 或 .json 文件");
+      }
+
+      // 验证 JSON 结构
+      if (!backupData || !backupData.data) {
+        throw new Error("文件内容格式不正确或已损坏");
+      }
+
+      // 提交到后端进行事务覆盖
+      const res = await service.post<any, ApiResponse>('/system/import', { backupData });
+      if (res.success) {
+        toast.dismiss(toastId);
+        appToast.success('数据恢复成功！系统即将刷新...');
+        setTimeout(() => window.location.reload(), 1500); 
+      }
+    } catch (e: any) {
+      toast.dismiss(toastId);
+      appToast.error(e.message || '恢复失败，文件可能已损坏');
+    } finally {
+      setIsProcessingBackup(false);
+      setRestoreWarningOpen(false);
+      setImportFile(null);
+    }
+  };
   if (loading && !config) return <div className="p-10 text-center text-gray-500 dark:text-gray-400 font-bold transition-colors">加载中...</div>;
 
   return (
@@ -349,6 +457,35 @@ export default function SettingsView() {
         </div>
       </Section>
 
+      {/* 6. 数据安全与备份 */}
+      <Section title="数据安全与备份" icon={<Database size={22} />} isOpen={openSection === 'backup'} onToggle={() => setOpenSection(openSection === 'backup' ? '' : 'backup' as any)}>
+        <div className="pt-2 space-y-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/50">
+            <p className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">您的数据完全掌握在自己手中</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">所有积分流水、孩子资料、心愿任务均可随时一键打包为 ZIP 格式下载到本地保存。</p>
+          </div>
+          
+          <div className="flex gap-3">
+            <button 
+              onClick={handleExportBackup} 
+              disabled={isProcessingBackup}
+              className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-blue-600 hover:text-white dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+            >
+              <DownloadCloud size={18} /> 导出 ZIP 备份
+            </button>
+            
+            <button 
+              onClick={() => fileInputRef.current?.click()} 
+              disabled={isProcessingBackup || !isAdmin}
+              className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-orange-500 hover:text-white dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+            >
+              <UploadCloud size={18} /> 上传 ZIP 恢复
+            </button>
+            <input type="file" accept=".zip,.json" ref={fileInputRef} className="hidden" onChange={handleImportFileChange} />
+          </div>
+        </div>
+      </Section>
+
       {/* --- 独立底部分组菜单 --- */}
       <div className="mt-8 px-2 animate-fade-in-up">
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
@@ -376,6 +513,29 @@ export default function SettingsView() {
       <BottomDrawer isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} title="意见反馈" footer={<button onClick={handleSendFeedback} disabled={isSubmittingFeedback || !feedbackText.trim()} className="w-full py-4 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold rounded-xl shadow-lg active:scale-[0.98] disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:shadow-none transition-all">{isSubmittingFeedback ? '发送中...' : '提交反馈给管理员'}</button>}>
         <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center font-medium transition-colors">有任何问题或建议，请告诉我们。消息将直接发送给系统开发组。</p>
         <textarea className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4 text-gray-800 dark:text-gray-100 font-bold outline-none focus:ring-2 focus:ring-orange-500 resize-none h-36 transition-colors" placeholder="请详细描述您的问题..." value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} />
+      </BottomDrawer>
+
+      {/* 危险操作：恢复确认弹窗 */}
+      <BottomDrawer isOpen={restoreWarningOpen} onClose={() => { setRestoreWarningOpen(false); setImportFile(null); }} title="⚠️ 严重警告" footer={
+        <div className="flex gap-3">
+          <button onClick={() => { setRestoreWarningOpen(false); setImportFile(null); }} className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl active:scale-95 transition-all">取消操作</button>
+          <button onClick={executeRestore} disabled={isProcessingBackup} className="flex-1 py-4 bg-red-600 text-white font-black rounded-xl shadow-lg shadow-red-200 dark:shadow-none active:scale-95 flex justify-center items-center gap-2 transition-all">
+            {isProcessingBackup ? '正在恢复...' : '明白风险，确认覆盖'}
+          </button>
+        </div>
+      }>
+        <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-2xl p-5 mb-4 space-y-3">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black text-lg">
+            <AlertTriangle size={24} /> 确认覆盖现有数据？
+          </div>
+          <p className="text-red-800 dark:text-red-300 text-sm font-medium leading-relaxed">
+            您即将导入备份文件 <span className="font-bold border-b border-red-300">{importFile?.name}</span>。
+          </p>
+          <p className="text-red-800 dark:text-red-300 text-sm font-medium leading-relaxed">
+            执行恢复操作后，当前系统内所有最新的积分流水、待办任务和审核记录将被 <span className="font-black underline">完全清空</span>，并替换为该备份文件中的历史状态。
+          </p>
+          <p className="text-red-600 dark:text-red-400 text-xs font-bold pt-2">此操作不可逆！如果担心出错，请在覆盖前先执行一次【导出备份】。</p>
+        </div>
       </BottomDrawer>
 
       {inviteModal && (
