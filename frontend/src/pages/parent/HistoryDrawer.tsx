@@ -111,9 +111,9 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
                 
                 // 🌟 判断是否被撤回
                 const isRevoked = log.is_revoked === 1;
-                // 🌟 判断是否在 5 分钟内
+                // 🌟 判断是否在 30 分钟内
                 const logTime = getSafeDate(log.created_at).getTime();
-                const isWithin5Mins = (nowTime - logTime) <= 5 * 60 * 1000;
+                const isWithin30Mins = (nowTime - logTime) <= 30 * 60 * 1000;
 
                 return (
                   <div key={log.id} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border ${isRevoked ? 'border-dashed border-gray-200 dark:border-gray-700 opacity-60' : 'border-gray-100 dark:border-gray-700 shadow-sm'} flex items-center gap-3 transition-colors relative`}>
@@ -142,8 +142,8 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
                         {isAdd ? '+' : ''}{log.points}
                       </div>
                       
-                      {/* 🌟 只有未作废 且 在5分钟内，才显示撤回按钮 */}
-                      {!isRevoked && isWithin5Mins && (
+                      {/* 🌟 只有未作废 且 在30分钟内，才显示撤回按钮 */}
+                      {!isRevoked && isWithin30Mins && (
                         <button 
                           onClick={() => handleUndo(log.id)}
                           className="mt-1 flex items-center gap-0.5 text-[10px] text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-md font-bold active:scale-95 transition-transform"

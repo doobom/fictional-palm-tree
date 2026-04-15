@@ -36,9 +36,9 @@ approvals.post('/upload', async (c) => {
  */
 approvals.post('/', async (c) => {
   const user = c.get('user');
-  // 🌟 接收 type 和 rewardId
   const { childId, type = 'task', ruleId, rewardId, title, evidenceText, evidenceImage, requestedPoints } = await c.req.json();
   const targetChildId = user.userType === 'child' ? user.id : childId;
+  const botToken = c.env.BOT_TOKEN; // 🌟 使用业务机器人 Token
 
   try {
     const id = nanoid(12);
@@ -47,10 +47,37 @@ approvals.post('/', async (c) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `).bind(id, user.familyId, targetChildId, type, ruleId || null, rewardId || null, title, evidenceText || '', evidenceImage || null, Math.abs(requestedPoints)).run();
 
-    // 🌟 发送 Telegram 通知
-    // if (c.env.TELEGRAM_BOT_TOKEN) {
-    //   await sendTgMessage(user.familyId, `🔔 任务审批提醒\n\n${child.name} 刚刚提交了任务凭证：\n📌 任务：${title}\n💰 申请：+${requestedPoints} 分\n\n👉 快去管理后台审核吧！`, c.env);
-    // }
+    // 🌟 发送 Telegram 审批通知逻辑
+    if (botToken) {
+      try {
+        const family = await c.env.DB.prepare(`SELECT tg_group_id FROM families WHERE id = ?`).bind(user.familyId).first();
+        const admins = await c.env.DB.prepare(`
+          SELECT u.telegram_id FROM users u
+          JOIN family_members fm ON u.id = fm.user_id
+          WHERE fm.family_id = ? AND fm.role IN ('admin', 'superadmin') AND u.telegram_id IS NOT NULL
+        `).bind(user.familyId).all();
+
+        const child = await c.env.DB.prepare('SELECT name FROM children WHERE id = ?').bind(targetChildId).first();
+        const childName = child?.name || '孩子';
+
+        const pointsSign = type === 'reward' ? '-' : '+';
+        const actionType = type === 'reward' ? '申请兑换商品' : '提交了任务凭证';
+        let msgText = `🔔 <b>新的审批请求</b>\n\n👤 <b>成员：</b>${childName}\n📝 <b>动作：</b>${actionType}\n📌 <b>内容：</b>${title}\n💰 <b>分值：</b>${pointsSign}${Math.abs(requestedPoints)}\n`;
+        if (evidenceText) msgText += `💬 <b>留言：</b>${evidenceText}`;
+
+        const keyboard = [[{ text: '✅ 同意', callback_data: `a:${id}` }, { text: '❌ 驳回', callback_data: `r:${id}` }]];
+
+        if (family?.tg_group_id) {
+          await sendTgMessageWithKeyboard(family.tg_group_id, msgText, keyboard, botToken);
+        } else {
+          await Promise.all(admins.results.map(adm => 
+            sendTgMessageWithKeyboard(adm.telegram_id, msgText, keyboard, botToken)
+          ));
+        }
+      } catch (tgErr) {
+        console.error('[TG Notification Error]', tgErr);
+      }
+    }
 
     return c.json({ success: true });
   } catch (e) {

@@ -47,18 +47,39 @@ family.put('/config', async (c) => {
     return c.json({ success: false, errorCode: 'ERR_FORBIDDEN', errorMessage: '没有修改权限' }, 403);
   }
 
-  const { name, point_name, point_emoji, avatar } = await c.req.json();
+  // 🌟 1. 新增接收前端传来的 timezone 和 push 推送相关字段
+  const { 
+    name, point_name, point_emoji, avatar,
+    timezone, push_enabled, push_time, push_options 
+  } = await c.req.json();
 
   try {
-    // 动态更新家庭信息
+    // 🌟 2. 转换布尔值为 SQLite 的 1 或 0，防止类型错误
+    const pushEnabledInt = push_enabled ? 1 : 0;
+
+    // 🌟 3. 动态更新家庭信息，加入新字段的绑定
     await c.env.DB.prepare(`
       UPDATE families 
       SET name = COALESCE(?, name), 
           point_name = COALESCE(?, point_name), 
           point_emoji = COALESCE(?, point_emoji),
-          avatar = COALESCE(?, avatar)
+          avatar = COALESCE(?, avatar),
+          timezone = COALESCE(?, timezone),
+          push_enabled = ?,
+          push_time = COALESCE(?, push_time),
+          push_options = COALESCE(?, push_options)
       WHERE id = ?
-    `).bind(name, point_name, point_emoji, avatar, user.familyId).run();
+    `).bind(
+      name, 
+      point_name, 
+      point_emoji, 
+      avatar, 
+      timezone, 
+      pushEnabledInt, 
+      push_time, 
+      push_options, 
+      user.familyId
+    ).run();
 
     return c.json({ success: true });
   } catch (error) {

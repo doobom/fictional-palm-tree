@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS families (
   push_time TEXT DEFAULT '20:00',
   push_options TEXT DEFAULT '["summary","pending","expiring"]',
   instant_alert_enabled BOOLEAN DEFAULT 1,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  tg_group_id TEXT;
 );
 
 -- 成员关系表 (实现一个用户属于多个家庭)
@@ -59,7 +60,7 @@ ALTER TABLE children ADD COLUMN has_new_achievement BOOLEAN DEFAULT 0;
 -- ==========================================
 -- 2. 鉴权与绑定表
 -- ==========================================
-
+-- 1. 统一的第三方绑定表，支持多种登录方式（Telegram、微信、邮箱、设备ID等）
 CREATE TABLE IF NOT EXISTS auth_bindings (
   id TEXT PRIMARY KEY,
   internal_id TEXT NOT NULL,       -- 指向 users.id 或 children.id
@@ -70,7 +71,7 @@ CREATE TABLE IF NOT EXISTS auth_bindings (
   UNIQUE(provider, provider_uid)
 );
 
--- 邀请码管理
+-- 2. 邀请码管理
 CREATE TABLE IF NOT EXISTS invitation_codes (
   code TEXT PRIMARY KEY,
   family_id TEXT NOT NULL,

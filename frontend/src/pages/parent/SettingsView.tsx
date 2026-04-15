@@ -16,14 +16,15 @@ import JSZip from 'jszip'; // 🌟 新增 ZIP 库
 import { 
   Settings, Baby, ShieldCheck, Copy, Smartphone, Plus, 
   UserCircle, Tags, Trash2, HelpCircle, Info, MessageSquare, ChevronRight, 
-  Globe, Calendar, MapPin, Edit3, Sun, Database, DownloadCloud, UploadCloud, AlertTriangle // 🌟 新增 Database 等图标
+  Globe, Calendar, MapPin, Edit3, Sun, Database, DownloadCloud, UploadCloud, AlertTriangle,
+  Bell, Clock, CheckSquare, Save, 
 } from 'lucide-react';
 
 export default function SettingsView() {
   const { currentFamilyId, families, childrenList, setChildrenList } = useUserStore();
   const { i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [openSection, setOpenSection] = useState<'profile' | 'basic' | 'categories' | 'children' | 'members' | 'backup'>('profile'); // 增加 backup 枚举
+  const [openSection, setOpenSection] = useState<'profile' | 'basic'| 'notifications' | 'categories' | 'children' | 'members' | 'backup'>('profile'); // 增加 backup 枚举
 
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
@@ -45,8 +46,6 @@ export default function SettingsView() {
 
   const [config, setConfig] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
-  const [isFamilyDrawerOpen, setIsFamilyDrawerOpen] = useState(false);
-  const [editFamilyData, setEditFamilyData] = useState({ name: '', point_name: '', point_emoji: '', avatar: '', timezone: 'Asia/Shanghai' });
 
   const [categories, setCategories] = useState<any[]>([]);
   const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
@@ -85,20 +84,6 @@ export default function SettingsView() {
     return () => { document.body.style.overflow = ''; };
   }, [inviteModal]);
 
-  const fetchFamilyData = async () => {
-    setLoading(true);
-    try {
-      const res = await service.get<any, ApiResponse>('/family/config');
-      if (res.success) {
-        setMembers(res.data.members || []); setConfig(res.data.config);
-        setEditFamilyData({ 
-          name: res.data.config.name, point_name: res.data.config.point_name, 
-          point_emoji: res.data.config.point_emoji, avatar: res.data.config.avatar || '🏠',
-          timezone: res.data.config.timezone || 'Asia/Shanghai'
-        });
-      }
-    } finally { setLoading(false); }
-  };
 
   const fetchCategories = async () => {
     try { const res = await service.get<any, ApiResponse>('/categories/list'); if (res.success || res.data) setCategories(res.data || res); } catch (e) {}
@@ -121,12 +106,64 @@ export default function SettingsView() {
     } catch(e) { appToast.error('保存失败，请稍后重试'); } 
   };
 
+  // 🌟 家庭设置相关
+  const [isFamilyDrawerOpen, setIsFamilyDrawerOpen] = useState(false);
+  const [editFamilyData, setEditFamilyData] = useState({ 
+    name: '', point_name: '', point_emoji: '', avatar: '', timezone: 'Asia/Shanghai',
+    push_enabled: false, push_time: '20:00', push_options: ['summary', 'pending', 'expiring'] // 🌟 新增
+  });
+  const [isPushDrawerOpen, setIsPushDrawerOpen] = useState(false);
+
+  const fetchFamilyData = async () => {
+    setLoading(true);
+    try {
+      const res = await service.get<any, ApiResponse>('/family/config');
+      if (res.success) {
+        setMembers(res.data.members || []); setConfig(res.data.config);
+        
+        // 🌟 解析 push_options
+        let parsedOptions = ['summary', 'pending', 'expiring'];
+        try { if (res.data.config.push_options) parsedOptions = JSON.parse(res.data.config.push_options); } catch(e) {}
+
+        setEditFamilyData({ 
+          name: res.data.config.name, 
+          point_name: res.data.config.point_name, 
+          point_emoji: res.data.config.point_emoji, 
+          avatar: res.data.config.avatar || '🏠',
+          timezone: res.data.config.timezone || 'Asia/Shanghai',
+          push_enabled: !!res.data.config.push_enabled, // 🌟 新增
+          push_time: res.data.config.push_time || '20:00', // 🌟 新增
+          push_options: parsedOptions // 🌟 新增
+        });
+      }
+    } finally { setLoading(false); }
+  };
+
   const handleSaveFamily = async () => {
     if (!editFamilyData.name.trim()) return appToast.warn('家庭名称不能为空');
     try { 
-      const res = await service.put<any, ApiResponse>('/family/config', editFamilyData); 
-      if(res.success){ appToast.success('家庭信息已更新'); setConfig({...config, ...editFamilyData}); setIsFamilyDrawerOpen(false); } 
+      // 🌟 将数组转回 JSON 字符串发给后端
+      const payload = {
+        ...editFamilyData,
+        push_options: JSON.stringify(editFamilyData.push_options)
+      };
+      const res = await service.put<any, ApiResponse>('/family/config', payload); 
+      if(res.success){ 
+        appToast.success('家庭设置已更新'); 
+        setConfig({...config, ...payload}); 
+        setIsFamilyDrawerOpen(false); 
+        setIsPushDrawerOpen(false); // 🌟 顺便关掉推送抽屉
+      } 
     } catch(e) {} 
+  };
+
+  const handleTogglePushOption = (id: string) => {
+    setEditFamilyData(prev => ({
+      ...prev,
+      push_options: prev.push_options.includes(id)
+        ? prev.push_options.filter((item: string) => item !== id)
+        : [...prev.push_options, id]
+    }));
   };
 
   const handleSaveChild = async () => {
@@ -291,6 +328,8 @@ export default function SettingsView() {
       setImportFile(null);
     }
   };
+
+
   if (loading && !config) return <div className="p-10 text-center text-gray-500 dark:text-gray-400 font-bold transition-colors">加载中...</div>;
 
   return (
@@ -374,6 +413,76 @@ export default function SettingsView() {
               <option value="Europe/London">伦敦时间 (Europe/London)</option>
             </select>
           </div>
+        </div>
+      </BottomDrawer>
+
+      {/* 2.5 自动推送设置 */}
+      <Section title="自动推送设置" icon={<Bell size={22} />} isOpen={openSection === 'notifications'} onToggle={() => setOpenSection(openSection === 'notifications' ? '' : 'notifications' as any)}>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">推送状态</span>
+            <span className={`font-bold ${config?.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+              {config?.push_enabled ? '已开启' : '已关闭'}
+            </span>
+          </div>
+          {config?.push_enabled && (
+            <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
+              <span className="text-gray-500 dark:text-gray-400 font-medium">推送时间</span>
+              <span className="font-bold text-gray-800 dark:text-gray-100">{config?.push_time || '20:00'}</span>
+            </div>
+          )}
+          {isAdmin && (
+            <button onClick={() => setIsPushDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors">
+              <Edit3 size={18}/> 配置推送规则
+            </button>
+          )}
+        </div>
+      </Section>
+
+      <BottomDrawer isOpen={isPushDrawerOpen} onClose={() => setIsPushDrawerOpen(false)} title="Telegram 推送设置" footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存设置</button>}>
+        <div className="space-y-6">
+          {/* 总开关 */}
+          <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 transition-colors">
+            <div>
+              <p className="font-bold text-gray-800 dark:text-gray-100">每日定时播报</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">在绑定的群组内自动发送简报</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={editFamilyData.push_enabled} onChange={(e) => setEditFamilyData({...editFamilyData, push_enabled: e.target.checked})} />
+              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* 展开的详情设置 */}
+          {editFamilyData.push_enabled && (
+            <div className="space-y-6 animate-fade-in">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1"><Clock size={16}/> 推送时间</label>
+                <input type="time" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.push_time} onChange={e => setEditFamilyData({...editFamilyData, push_time: e.target.value})} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1"><CheckSquare size={16}/> 推送内容</label>
+                <div className="space-y-3">
+                  {[
+                    { id: 'summary', label: '每日日报', desc: '汇总今日得分、打卡情况与系统大盘' },
+                    { id: 'pending', label: '待办提醒', desc: '如果有待审批的任务，将一并发出提醒' },
+                    { id: 'expiring', label: '目标进度', desc: '附带展示孩子们当前正在进行的心愿进度' }
+                  ].map(type => (
+                    <div key={type.id} onClick={() => handleTogglePushOption(type.id)} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between cursor-pointer ${editFamilyData.push_options.includes(type.id) ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-100 dark:border-gray-600 bg-white dark:bg-gray-700'}`}>
+                      <div>
+                        <p className="font-bold text-sm text-gray-800 dark:text-gray-100">{type.label}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{type.desc}</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${editFamilyData.push_options.includes(type.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-500'}`}>
+                        {editFamilyData.push_options.includes(type.id) && <div className="w-2 h-2 bg-white rounded-full" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </BottomDrawer>
 

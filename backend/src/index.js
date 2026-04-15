@@ -75,7 +75,7 @@ app.route('/api/system', system);
 app.route('/api/rules', rules); // 🌟 新增规则管理路由
 app.route('/api/approvals', approvals); // 🌟 新增审批相关路由
 app.route('/api/routines', routines); // 🌟 新增常规任务路由
-app.route('/webhook', webhook);
+app.route('/api/webhook', webhook);
 
 // 4. 健康检查与根路由
 app.get('/', (c) => c.text('Family Points System API (Edge Edition)'));
@@ -140,6 +140,81 @@ export default {
       );
     }
     
-    // 后续可以增加周报推送逻辑
+    ctx.waitUntil(handleScheduledPush(env));
   }
 };
+
+/**
+ * 🌟 核心推送逻辑：检查当前时间，并为符合条件的家庭生成日报
+ */
+async function handleScheduledPush(env) {
+  if (!env.BOT_TOKEN || !env.DB) return;
+
+  // 1. 获取当前时间 (东八区)，格式化为 HH:mm
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  const currentTime = formatter.format(now); // 结果类似于 "20:00"
+
+  try {
+    // 2. 从数据库找出所有开启了推送，并且推送时间等于当前分钟的家庭
+    const families = await env.DB.prepare(`
+      SELECT id, tg_group_id 
+      FROM families 
+      WHERE push_enabled = 1 
+        AND push_time = ? 
+        AND tg_group_id IS NOT NULL
+    `).bind(currentTime).all();
+
+    if (!families || families.results.length === 0) return; // 当前分钟没有需要推送的家庭
+
+    // 3. 生成日报并循环发送
+    const todayStr = new Date(Date.now() + 8 * 3600 * 1000).toISOString().split('T')[0];
+
+    for (const family of families.results) {
+      const familyId = family.id;
+
+      // 统计今日打卡项
+      const logs = await env.DB.prepare(`
+        SELECT c.name, COUNT(rl.id) as count 
+        FROM children c LEFT JOIN routine_logs rl ON c.id = rl.child_id AND rl.date_str = ? AND rl.status = 'completed'
+        WHERE c.family_id = ? GROUP BY c.id
+      `).bind(todayStr, familyId).all();
+
+      // 统计今日得分
+      const gains = await env.DB.prepare(`
+        SELECT c.name, SUM(h.points) as total 
+        FROM children c LEFT JOIN history h ON c.id = h.child_id AND date(h.created_at, '+8 hours') = ? AND h.points > 0 AND h.is_revoked = 0
+        WHERE c.family_id = ? GROUP BY c.id
+      `).bind(todayStr, familyId).all();
+
+      // 待办审批数
+      const pendingCount = await env.DB.prepare(`
+        SELECT COUNT(*) as c FROM approvals 
+        WHERE family_id = ? AND status = 'pending'
+      `).bind(familyId).first('c') || 0;
+
+      // 组装文本
+      let respText = `🌙 <b>【晚间家庭日报】</b> (${todayStr})\n\n`;
+      respText += `<b>📈 今日得分与打卡：</b>\n`;
+      logs.results.forEach((l, i) => {
+        const gain = gains.results[i]?.total || 0;
+        respText += `👦 <b>${l.name}</b>：赚取 ${gain} 分，完成 ${l.count} 项打卡\n`;
+      });
+
+      respText += `\n<b>📝 待办审批概况：</b>\n`;
+      respText += pendingCount > 0 
+        ? `有 <b>${pendingCount}</b> 个任务正在等您批阅！\n👉 请发送 /pending 快捷处理。` 
+        : `全部清空，完美的一天！辛苦啦！`;
+
+      // 发送到对应的家庭群组
+      await sendTgMessage(env.BOT_TOKEN, family.tg_group_id, respText);
+    }
+  } catch (err) {
+    console.error('[Cron Push Error]', err);
+  }
+}
