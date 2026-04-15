@@ -580,7 +580,7 @@ export default function SettingsView() {
               disabled={isProcessingBackup}
               className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-blue-600 hover:text-white dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
-              <DownloadCloud size={18} /> 导出 ZIP 备份
+              <DownloadCloud size={18} /> 导出备份
             </button>
             
             <button 
@@ -588,7 +588,7 @@ export default function SettingsView() {
               disabled={isProcessingBackup || !isAdmin}
               className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-orange-500 hover:text-white dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
             >
-              <UploadCloud size={18} /> 上传 ZIP 恢复
+              <UploadCloud size={18} /> 上传恢复
             </button>
             <input type="file" accept=".zip,.json" ref={fileInputRef} className="hidden" onChange={handleImportFileChange} />
           </div>

@@ -12,6 +12,7 @@ import { getTenantAccessToken, sendLarkMessage } from '../utils/lark.js';
 import { sendAlipayMessage } from '../utils/alipay.js';
 import { t } from '../utils/i18n.js';
 import { checkAchievementUnlock } from './achievements.js';
+import { generateDailyReport } from '../utils/report.js';
 
 const webhook = new Hono();
 
@@ -37,9 +38,261 @@ async function checkTelegramSecurity(c, body) {
 // ==========================================
 webhook.post('/telegram', async (c) => {
   const body = await c.req.json();
+
   if (await checkTelegramSecurity(c, body)) return c.json({ ok: true });
 
+  console.log(`[Telegram Webhook] Received update:`, JSON.stringify(body));
+
   const botToken = c.env.BOT_TOKEN;
+
+  // 处理按钮回调 (Callback Query)
+  if (body.callback_query) {
+    const cb = body.callback_query;
+    const data = cb.data; 
+    const messageId = cb.message.message_id;
+    const chatId = cb.message.chat.id;
+
+    console.log('收到回调数据：', data);
+
+    if (data.startsWith('a:') || data.startsWith('r:')) {
+      const action = data.startsWith('a:') ? 'approve' : 'reject';
+      const approvalId = data.slice(2);
+
+      try {
+        const approval = await c.env.DB.prepare(`SELECT * FROM approvals WHERE id = ?`).bind(approvalId).first();
+        if (!approval) return await answerTgCallback(cb.id, '⚠️ 记录不存在', true, botToken);
+        if (approval.status !== 'pending') {
+          await answerTgCallback(cb.id, '已被处理过', false, botToken);
+          return await editTgMessageText(chatId, messageId, cb.message.text + `\n\n(状态：已处理)`, botToken);
+        }
+
+        if (action === 'approve') {
+          let points = approval.requested_points;
+          if (approval.type === 'reward') {
+            points = -Math.abs(points);
+            if (approval.reward_id) {
+              await c.env.DB.prepare(`UPDATE rewards SET stock = stock - 1 WHERE id = ? AND stock > 0`).bind(approval.reward_id).run();
+            }
+          } else {
+            points = Math.abs(points);
+            if (approval.rule_id) {
+              await c.env.DB.prepare(`UPDATE routine_logs SET status = 'completed' WHERE routine_id = ? AND child_id = ? AND status = 'pending'`).bind(approval.rule_id, approval.child_id).run();
+            }
+          }
+
+          // 触发 DO 执行精准发分
+          const doId = c.env.FAMILY_MANAGER.idFromName(approval.family_id);
+          const doObj = c.env.FAMILY_MANAGER.get(doId);
+          await doObj.fetch(new Request(`http://do/adjust`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              familyId: approval.family_id, childId: approval.child_id, points,
+              operatorId: `tg_${cb.from.id}`,
+              remark: approval.type === 'reward' ? `兑换：${approval.title}` : `任务：${approval.title}` 
+            })
+          }));
+
+          await c.env.DB.prepare(`UPDATE approvals SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(approvalId).run();
+          await answerTgCallback(cb.id, '✅ 已通过', false, botToken);
+          await editTgMessageText(chatId, messageId, cb.message.text + `\n\n✅ <b>已由 ${cb.from.first_name || '家长'} 同意</b>`, botToken);
+
+        } else {
+          // 驳回逻辑
+          await c.env.DB.prepare(`UPDATE approvals SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(approvalId).run();
+          await answerTgCallback(cb.id, '❌ 已驳回', false, botToken);
+          await editTgMessageText(chatId, messageId, cb.message.text + `\n\n❌ <b>已被 ${cb.from.first_name || '家长'} 驳回</b>`, botToken);
+        }
+      } catch (err) {
+        console.error('[Webhook Process Error]', err);
+        await answerTgCallback(cb.id, '❌ 系统处理出错', true, botToken);
+      }
+    }
+
+    // --- 🌟 处理 1: 快捷奖惩回调 (op:) ---
+    if (data.startsWith('op:')) {
+      const [_, type, pointsStr, childId, remark] = data.split(':');
+      const points = type === 'r' ? parseInt(pointsStr) : -parseInt(pointsStr);
+      
+      try {
+        const child = await c.env.DB.prepare(`SELECT name, family_id FROM children WHERE id = ?`).bind(childId).first();
+        if (!child) return await answerTgCallback(cb.id, '❌ 找不到孩子', true, botToken);
+
+        // 触发 DO 执行
+        const doId = c.env.FAMILY_MANAGER.idFromName(child.family_id);
+        const doObj = c.env.FAMILY_MANAGER.get(doId);
+        await doObj.fetch(new Request(`http://do/adjust`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            familyId: child.family_id, childId: childId, points: points,
+            operatorId: `tg_${cb.from.id}`, remark: `[快捷奖惩] ${remark}` 
+          })
+        }));
+
+        const resultText = type === 'r' ? `🎉 成功奖励了 ${child.name} ${pointsStr} 分！` : `⚖️ 已扣除 ${child.name} ${pointsStr} 分。`;
+        await answerTgCallback(cb.id, resultText, false, botToken);
+        await editTgMessageText(chatId, messageId, `✅ <b>操作成功</b>\n\n${resultText}\n理由：${remark}`, botToken);
+      } catch (err) {
+        await answerTgCallback(cb.id, '❌ 发分失败', true, botToken);
+      }
+    }
+
+    // --- 🌟 处理 2: 互动打卡回调 (tk:) ---
+    if (data.startsWith('tk:')) {
+      const routineId = data.split(':')[1];
+      const todayStr = new Date(Date.now() + 8 * 3600 * 1000).toISOString().split('T')[0];
+
+      try {
+        const auth = await c.env.DB.prepare(`SELECT internal_id FROM auth_bindings WHERE provider = 'telegram' AND provider_uid = ?`).bind(String(cb.from.id)).first();
+        const routine = await c.env.DB.prepare(`SELECT * FROM routines WHERE id = ?`).bind(routineId).first();
+        
+        if (!auth || !routine) return await answerTgCallback(cb.id, '❌ 任务不存在或未绑定', true, botToken);
+
+        // 判断是否需要审批
+        if (routine.auto_approve) {
+          // 直接打卡发分
+          const doId = c.env.FAMILY_MANAGER.idFromName(routine.family_id);
+          const doObj = c.env.FAMILY_MANAGER.get(doId);
+          await doObj.fetch(new Request(`http://do/adjust`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              familyId: routine.family_id, childId: auth.internal_id, 
+              points: routine.points, ruleId: routine.id, remark: `打卡：${routine.name}` 
+            })
+          }));
+          await c.env.DB.prepare(`INSERT INTO routine_logs (id, family_id, routine_id, child_id, date_str, status) VALUES (?,?,?,?,?,'completed')`).bind(nanoid(), routine.family_id, routineId, auth.internal_id, todayStr).run();
+          
+          await answerTgCallback(cb.id, '✅ 打卡成功，积分已到账！', false, botToken);
+          await editTgMessageText(chatId, messageId, `✨ <b>打卡成功！</b>\n\n你已完成：${routine.emoji || ''} ${routine.name}\n获得积分：+${routine.points}`, botToken);
+        } else {
+          // 提交审批
+          const approvalId = nanoid(12);
+          await c.env.DB.prepare(`INSERT INTO approvals (id, family_id, child_id, rule_id, title, requested_points, status) VALUES (?,?,?,?,?,?,'pending')`).bind(approvalId, routine.family_id, auth.internal_id, routineId, `打卡：${routine.name}`, routine.points).run();
+          
+          await answerTgCallback(cb.id, '📝 已提交审批', false, botToken);
+          await editTgMessageText(chatId, messageId, `⏳ <b>已提交审批</b>\n\n任务：${routine.name}\n待家长确认后即可发分！`, botToken);
+          // 这里可以额外触发一条发给家长的带按钮的消息，逻辑同 approvals.post
+        }
+      } catch (err) {
+        await answerTgCallback(cb.id, '❌ 打卡失败', true, botToken);
+      }
+    }
+
+    // --- 🌟 处理 3: 撤销记录回调 (un:) 优化版 ---
+    if (data.startsWith('un:')) {
+      const historyId = data.split(':')[1];
+      console.log(`[Undo Attempt] historyId=${historyId} by user ${cb.from.id} (${cb.from.first_name})`);
+      try {
+        const history = await c.env.DB.prepare(`SELECT * FROM history WHERE id = ? AND is_revoked = 0`).bind(historyId).first();
+        console.log(`[Undo] Fetched history record:`, history);
+        if (!history) {
+          return await answerTgCallback(cb.id, '❌ 记录不存在或已超时', true, botToken);
+        }
+
+        // 1. 执行反向积分操作
+        const doId = c.env.FAMILY_MANAGER.idFromName(history.family_id);
+        const doObj = c.env.FAMILY_MANAGER.get(doId);
+        await doObj.fetch(new Request(`http://do/adjust`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            familyId: history.family_id, 
+            childId: history.child_id, 
+            points: -history.points, 
+            operatorId: `tg_${cb.from.id}`, 
+            remark: `[撤销操作] ${history.remark}` 
+          })
+        }));
+        console.log(`[Undo] DO adjustment completed for historyId=${historyId}`);
+        // 2. 更新数据库状态
+        await c.env.DB.prepare(`UPDATE history SET is_revoked = 1 WHERE id = ?`).bind(historyId).run();
+
+        // 3. 重点：显眼的反馈
+        const successText = `✅ <b>撤销成功</b>\n\n已成功撤回：${history.points > 0 ? '+' : ''}${history.points} 🪙\n原由：${history.remark}\n操作人：${cb.from.first_name}`;
+        
+        // 顶部弹窗（设为 true 会变成需要点击确认的对话框，更显眼）
+        await answerTgCallback(cb.id, '✅ 撤销成功！', false, botToken);
+        
+        // 修改原消息内容并清空按钮
+        await editTgMessageText(chatId, messageId, successText, botToken);
+        
+      } catch (err) {
+        console.error('[Undo Error]', err);
+        await answerTgCallback(cb.id, '❌ 撤销失败，请稍后重试', true, botToken);
+      }
+    }
+
+    // --- 🌟 处理 4: 亲情转账回调 (tr:) ---
+    if (data.startsWith('tr:')) {
+      const [_, amountStr, targetChildId] = data.split(':');
+      const amount = parseInt(amountStr);
+
+      try {
+        // 校验发送者是谁
+        const auth = await c.env.DB.prepare(`SELECT internal_id FROM auth_bindings WHERE provider = 'telegram' AND provider_uid = ?`).bind(String(cb.from.id)).first();
+        if (!auth) return await answerTgCallback(cb.id, '❌ 身份校验失败', true, botToken);
+        
+        const senderChildId = auth.internal_id;
+        const sender = await c.env.DB.prepare(`SELECT name, (score_gained - score_spent) as balance, family_id FROM children WHERE id = ?`).bind(senderChildId).first();
+        const receiver = await c.env.DB.prepare(`SELECT name FROM children WHERE id = ?`).bind(targetChildId).first();
+
+        // 二次校验余额（防止多端并发点击超售）
+        if (!sender || sender.balance < amount) return await answerTgCallback(cb.id, '❌ 你的余额不足啦', true, botToken);
+
+        const doId = c.env.FAMILY_MANAGER.idFromName(sender.family_id);
+        const doObj = c.env.FAMILY_MANAGER.get(doId);
+
+        // 第 1 步：DO 扣除发送者积分
+        await doObj.fetch(new Request(`http://do/adjust`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            familyId: sender.family_id, childId: senderChildId, points: -amount,
+            operatorId: `tg_${cb.from.id}`, remark: `转账给 ${receiver.name}` 
+          })
+        }));
+
+        // 第 2 步：DO 增加接收者积分
+        await doObj.fetch(new Request(`http://do/adjust`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            familyId: sender.family_id, childId: targetChildId, points: amount,
+            operatorId: `tg_${cb.from.id}`, remark: `收到 ${sender.name} 的转账` 
+          })
+        }));
+
+        await answerTgCallback(cb.id, '✅ 转账成功！', false, botToken);
+        await editTgMessageText(chatId, messageId, `💖 <b>亲情互助成功</b>\n\n🎉 <b>${sender.name}</b> 大方地送给了 <b>${receiver.name}</b> <b>${amount}</b> 分！\n相亲相爱一家人~`, botToken);
+      } catch (err) {
+        await answerTgCallback(cb.id, '❌ 系统繁忙，转账失败', true, botToken);
+      }
+    }
+
+    // --- 🌟 处理 5: 提醒回调 (nd:) ---
+    if (data.startsWith('nd:')) {
+      const childId = data.split(':')[1];
+      try {
+        const child = await c.env.DB.prepare(`SELECT name, family_id FROM children WHERE id = ?`).bind(childId).first();
+        const family = await c.env.DB.prepare(`SELECT tg_group_id FROM families WHERE id = ?`).bind(child.family_id).first();
+        
+        if (!family || !family.tg_group_id) {
+           return await answerTgCallback(cb.id, '❌ 必须绑定家庭群组后才能发送群提醒', true, botToken);
+        }
+
+        const msg = `🔔 <b>嘀嘀！爱的提醒</b>\n\n👦 <b>${child.name}</b>，家长正在呼叫你！\n快去系统里看看有没有遗漏的打卡任务或待办事项吧~ 🚀`;
+        
+        // 关键：将消息发送到家庭群组
+        await sendTgMessage(botToken, family.tg_group_id, msg);
+        
+        await answerTgCallback(cb.id, `✅ 提醒已成功发送到群里！`, false, botToken);
+        await editTgMessageText(chatId, messageId, `✅ <b>提醒发送成功</b>\n\n已成功在家庭群组内呼叫 ${child.name}。`, botToken);
+      } catch (err) {
+        await answerTgCallback(cb.id, '❌ 提醒失败', true, botToken);
+      }
+    }
+
+    return c.json({ ok: true });
+  }
+
   const msg = body.message;
   if (!msg || !msg.text) return c.json({ ok: true });
 
@@ -49,6 +302,8 @@ webhook.post('/telegram', async (c) => {
   const chatType = msg.chat.type;
   const command = text.split('@')[0].split(' ')[0];
   const baseUrl = new URL(c.req.url).origin;
+
+  console.log(`[Telegram Webhook] Received command: ${command} from chat ${chatId} (type: ${chatType})`);
 
   // --- 处理指令 (Message) ---
   try {
@@ -561,7 +816,7 @@ webhook.post('/telegram', async (c) => {
 
       if (histories.results.length === 0) return await sendTgMessage(botToken, chatId, `✅ 最近没有可以撤销的操作。`);
 
-      let respText = `↩️ <b>撤销操作 (后悔药)</b>\n\n请选择你要撤销的记录：`;
+      let respText = `↩️ <b>撤销操作</b>\n\n请选择你要撤销的记录：`;
       const keyboard = histories.results.map(h => {
         const sign = h.points > 0 ? '+' : '';
         const shortRemark = (h.remark || '系统调整').substring(0, 10);
@@ -569,6 +824,7 @@ webhook.post('/telegram', async (c) => {
           text: `撤销：${h.name} ${sign}${h.points} (${shortRemark})`,
           callback_data: `un:${h.id}`
         }];
+        console.log('撤销按钮数据：', `un:${h.id}`);
       });
 
       await sendTgMessageWithKeyboard(chatId, respText, keyboard, botToken);
@@ -685,7 +941,7 @@ webhook.post('/telegram', async (c) => {
       }
     }
 
-    // --- 🌟 功能 15: /report 自动生成的今日家庭日报 ---
+// --- 🌟 功能 15: /report 自动生成的今日家庭日报 ---
     else if (command === '/report') {
       const auth = await c.env.DB.prepare(`SELECT internal_id, user_type FROM auth_bindings WHERE provider = 'telegram' AND provider_uid = ?`).bind(senderId).first();
       if (!auth || auth.user_type !== 'parent') return await sendTgMessage(botToken, chatId, `❌ 仅限家长生成家庭日报。`);
@@ -693,35 +949,8 @@ webhook.post('/telegram', async (c) => {
       const familyId = (await c.env.DB.prepare(`SELECT family_id FROM memberships WHERE user_id = ? LIMIT 1`).bind(auth.internal_id).first())?.family_id;
       if (!familyId) return;
 
-      const todayStr = new Date(Date.now() + 8 * 3600 * 1000).toISOString().split('T')[0];
-
-      // 统计今日打卡项
-      const logs = await c.env.DB.prepare(`
-        SELECT c.name, COUNT(rl.id) as count 
-        FROM children c LEFT JOIN routine_logs rl ON c.id = rl.child_id AND rl.date_str = ? AND rl.status = 'completed'
-        WHERE c.family_id = ? GROUP BY c.id
-      `).bind(todayStr, familyId).all();
-
-      // 统计今日得分
-      const gains = await c.env.DB.prepare(`
-        SELECT c.name, SUM(h.points) as total 
-        FROM children c LEFT JOIN history h ON c.id = h.child_id AND date(h.created_at, '+8 hours') = ? AND h.points > 0 AND h.is_revoked = 0
-        WHERE c.family_id = ? GROUP BY c.id
-      `).bind(todayStr, familyId).all();
-
-      // 待办数量
-      const pendingCount = await c.env.DB.prepare(`SELECT COUNT(*) as c FROM approvals WHERE family_id = ? AND status = 'pending'`).bind(familyId).first('c') || 0;
-
-      let respText = `📰 <b>【今日家庭日报】</b> (${todayStr})\n\n`;
-      respText += `<b>📈 今日得分与任务：</b>\n`;
-      logs.results.forEach((l, i) => {
-        const gain = gains.results[i]?.total || 0;
-        respText += `👦 <b>${l.name}</b>：赚取 ${gain} 分，完成 ${l.count} 项打卡\n`;
-      });
-
-      respText += `\n<b>📝 待办审批概况：</b>\n`;
-      respText += pendingCount > 0 ? `有 <b>${pendingCount}</b> 个任务正在等您批阅！\n👉 请发送 /pending 快捷处理。` : `全部清空，完美的一天！`;
-
+      // 🌟 核心优化：直接调用公共函数
+      const respText = await generateDailyReport(c.env.DB, familyId, "📰 <b>【今日家庭日报】</b>");
       await sendTgMessage(botToken, chatId, respText);
     }
 
@@ -855,6 +1084,38 @@ webhook.post('/telegram', async (c) => {
       await sendTgMessage(botToken, chatId, respText.trim());
     }
 
+    // --- 🌟 功能 19: /push_test 测试定时推送机制 ---
+    else if (command === '/push_test') {
+      const auth = await c.env.DB.prepare(`SELECT internal_id, user_type FROM auth_bindings WHERE provider = 'telegram' AND provider_uid = ?`).bind(senderId).first();
+      if (!auth || auth.user_type !== 'parent') return await sendTgMessage(botToken, chatId, `❌ <b>权限不足</b>\n仅家长可使用推送测试。`);
+
+      const family = await c.env.DB.prepare(`
+        SELECT f.id, f.tg_group_id, f.push_enabled, f.push_time 
+        FROM families f JOIN memberships m ON f.id = m.family_id 
+        WHERE m.user_id = ? LIMIT 1
+      `).bind(auth.internal_id).first();
+
+      if (!family) return;
+
+      // 🌟 核心优化：直接调用公共函数
+      const respText = await generateDailyReport(c.env.DB, family.id, "🔧 <b>【推送测试】晚间家庭日报</b>");
+
+      // 🌟 模拟路由逻辑：优先群组，否则私聊
+      let targetChatId = family.tg_group_id;
+      let targetName = "家庭群组";
+      
+      if (!targetChatId) {
+        targetChatId = chatId;
+        targetName = "当前私聊";
+      }
+
+      if (String(targetChatId) !== String(chatId)) {
+         await sendTgMessage(botToken, chatId, `✅ <b>触发成功</b>\n\n当前的定时推送状态：<b>${family.push_enabled ? '已开启' : '已关闭'}</b>\n设定的定时时间：<b>${family.push_time || '未设置'}</b>\n\n测试日报已发送至 <b>${targetName}</b>，请前往查看！`);
+      }
+
+      await sendTgMessage(botToken, targetChatId, respText);
+    }
+
     // --- 🌟 替换原有的 /help 使用说明书 ---
     else if (command === '/help') {
       const isPrivate = chatType === 'private';
@@ -892,6 +1153,7 @@ webhook.post('/telegram', async (c) => {
 ⚙️ <b>管理设置</b>
 /invite - (管理员) 一键生成家人邀请码
 /bindgroup - (仅限群组) 绑定当前通知群
+/push_test - (家长) 测试定时推送功能
 /start - 唤起主程序面板
 
 快点击下方按钮，开始您的积分之旅吧！✨
@@ -905,251 +1167,6 @@ webhook.post('/telegram', async (c) => {
   }
 
   // ================= 指令结束 =================
-
-  // 处理按钮回调 (Callback Query)
-  if (body.callback_query) {
-    const cb = body.callback_query;
-    const data = cb.data; 
-    const messageId = cb.message.message_id;
-    const chatId = cb.message.chat.id;
-
-    if (data.startsWith('a:') || data.startsWith('r:')) {
-      const action = data.startsWith('a:') ? 'approve' : 'reject';
-      const approvalId = data.slice(2);
-
-      try {
-        const approval = await c.env.DB.prepare(`SELECT * FROM approvals WHERE id = ?`).bind(approvalId).first();
-        if (!approval) return await answerTgCallback(cb.id, '⚠️ 记录不存在', true, botToken);
-        if (approval.status !== 'pending') {
-          await answerTgCallback(cb.id, '已被处理过', false, botToken);
-          return await editTgMessageText(chatId, messageId, cb.message.text + `\n\n(状态：已处理)`, botToken);
-        }
-
-        if (action === 'approve') {
-          let points = approval.requested_points;
-          if (approval.type === 'reward') {
-            points = -Math.abs(points);
-            if (approval.reward_id) {
-              await c.env.DB.prepare(`UPDATE rewards SET stock = stock - 1 WHERE id = ? AND stock > 0`).bind(approval.reward_id).run();
-            }
-          } else {
-            points = Math.abs(points);
-            if (approval.rule_id) {
-              await c.env.DB.prepare(`UPDATE routine_logs SET status = 'completed' WHERE routine_id = ? AND child_id = ? AND status = 'pending'`).bind(approval.rule_id, approval.child_id).run();
-            }
-          }
-
-          // 触发 DO 执行精准发分
-          const doId = c.env.FAMILY_MANAGER.idFromName(approval.family_id);
-          const doObj = c.env.FAMILY_MANAGER.get(doId);
-          await doObj.fetch(new Request(`http://do/adjust`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              familyId: approval.family_id, childId: approval.child_id, points,
-              operatorId: `tg_${cb.from.id}`,
-              remark: approval.type === 'reward' ? `兑换：${approval.title}` : `任务：${approval.title}` 
-            })
-          }));
-
-          await c.env.DB.prepare(`UPDATE approvals SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(approvalId).run();
-          await answerTgCallback(cb.id, '✅ 已通过', false, botToken);
-          await editTgMessageText(chatId, messageId, cb.message.text + `\n\n✅ <b>已由 ${cb.from.first_name || '家长'} 同意</b>`, botToken);
-
-        } else {
-          // 驳回逻辑
-          await c.env.DB.prepare(`UPDATE approvals SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(approvalId).run();
-          await answerTgCallback(cb.id, '❌ 已驳回', false, botToken);
-          await editTgMessageText(chatId, messageId, cb.message.text + `\n\n❌ <b>已被 ${cb.from.first_name || '家长'} 驳回</b>`, botToken);
-        }
-      } catch (err) {
-        console.error('[Webhook Process Error]', err);
-        await answerTgCallback(cb.id, '❌ 系统处理出错', true, botToken);
-      }
-    }
-
-    // --- 🌟 处理 1: 快捷奖惩回调 (op:) ---
-    if (data.startsWith('op:')) {
-      const [_, type, pointsStr, childId, remark] = data.split(':');
-      const points = type === 'r' ? parseInt(pointsStr) : -parseInt(pointsStr);
-      
-      try {
-        const child = await c.env.DB.prepare(`SELECT name, family_id FROM children WHERE id = ?`).bind(childId).first();
-        if (!child) return await answerTgCallback(cb.id, '❌ 找不到孩子', true, botToken);
-
-        // 触发 DO 执行
-        const doId = c.env.FAMILY_MANAGER.idFromName(child.family_id);
-        const doObj = c.env.FAMILY_MANAGER.get(doId);
-        await doObj.fetch(new Request(`http://do/adjust`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            familyId: child.family_id, childId: childId, points: points,
-            operatorId: `tg_${cb.from.id}`, remark: `[快捷奖惩] ${remark}` 
-          })
-        }));
-
-        const resultText = type === 'r' ? `🎉 成功奖励了 ${child.name} ${pointsStr} 分！` : `⚖️ 已扣除 ${child.name} ${pointsStr} 分。`;
-        await answerTgCallback(cb.id, resultText, false, botToken);
-        await editTgMessageText(chatId, messageId, `✅ <b>操作成功</b>\n\n${resultText}\n理由：${remark}`, botToken);
-      } catch (err) {
-        await answerTgCallback(cb.id, '❌ 发分失败', true, botToken);
-      }
-    }
-
-    // --- 🌟 处理 2: 互动打卡回调 (tk:) ---
-    if (data.startsWith('tk:')) {
-      const routineId = data.split(':')[1];
-      const todayStr = new Date(Date.now() + 8 * 3600 * 1000).toISOString().split('T')[0];
-
-      try {
-        const auth = await c.env.DB.prepare(`SELECT internal_id FROM auth_bindings WHERE provider = 'telegram' AND provider_uid = ?`).bind(String(cb.from.id)).first();
-        const routine = await c.env.DB.prepare(`SELECT * FROM routines WHERE id = ?`).bind(routineId).first();
-        
-        if (!auth || !routine) return await answerTgCallback(cb.id, '❌ 任务不存在或未绑定', true, botToken);
-
-        // 判断是否需要审批
-        if (routine.auto_approve) {
-          // 直接打卡发分
-          const doId = c.env.FAMILY_MANAGER.idFromName(routine.family_id);
-          const doObj = c.env.FAMILY_MANAGER.get(doId);
-          await doObj.fetch(new Request(`http://do/adjust`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              familyId: routine.family_id, childId: auth.internal_id, 
-              points: routine.points, ruleId: routine.id, remark: `打卡：${routine.name}` 
-            })
-          }));
-          await c.env.DB.prepare(`INSERT INTO routine_logs (id, family_id, routine_id, child_id, date_str, status) VALUES (?,?,?,?,?,'completed')`).bind(nanoid(), routine.family_id, routineId, auth.internal_id, todayStr).run();
-          
-          await answerTgCallback(cb.id, '✅ 打卡成功，积分已到账！', false, botToken);
-          await editTgMessageText(chatId, messageId, `✨ <b>打卡成功！</b>\n\n你已完成：${routine.emoji || ''} ${routine.name}\n获得积分：+${routine.points}`, botToken);
-        } else {
-          // 提交审批
-          const approvalId = nanoid(12);
-          await c.env.DB.prepare(`INSERT INTO approvals (id, family_id, child_id, rule_id, title, requested_points, status) VALUES (?,?,?,?,?,?,'pending')`).bind(approvalId, routine.family_id, auth.internal_id, routineId, `打卡：${routine.name}`, routine.points).run();
-          
-          await answerTgCallback(cb.id, '📝 已提交审批', false, botToken);
-          await editTgMessageText(chatId, messageId, `⏳ <b>已提交审批</b>\n\n任务：${routine.name}\n待家长确认后即可发分！`, botToken);
-          // 这里可以额外触发一条发给家长的带按钮的消息，逻辑同 approvals.post
-        }
-      } catch (err) {
-        await answerTgCallback(cb.id, '❌ 打卡失败', true, botToken);
-      }
-    }
-
-    // --- 🌟 处理 3: 撤销记录回调 (un:) 优化版 ---
-    if (data.startsWith('un:')) {
-      const historyId = data.split(':')[1];
-      try {
-        const history = await c.env.DB.prepare(`SELECT * FROM history WHERE id = ? AND is_revoked = 0`).bind(historyId).first();
-        
-        if (!history) {
-          return await answerTgCallback(cb.id, '❌ 记录不存在或已超时', true, botToken);
-        }
-
-        // 1. 执行反向积分操作
-        const doId = c.env.FAMILY_MANAGER.idFromName(history.family_id);
-        const doObj = c.env.FAMILY_MANAGER.get(doId);
-        await doObj.fetch(new Request(`http://do/adjust`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            familyId: history.family_id, 
-            childId: history.child_id, 
-            points: -history.points, 
-            operatorId: `tg_${cb.from.id}`, 
-            remark: `[撤销操作] ${history.remark}` 
-          })
-        }));
-
-        // 2. 更新数据库状态
-        await c.env.DB.prepare(`UPDATE history SET is_revoked = 1 WHERE id = ?`).bind(historyId).run();
-
-        // 3. 重点：显眼的反馈
-        const successText = `✅ <b>撤销成功</b>\n\n已成功撤回：${history.points > 0 ? '+' : ''}${history.points} 🪙\n原由：${history.remark}\n操作人：${cb.from.first_name}`;
-        
-        // 顶部弹窗（设为 true 会变成需要点击确认的对话框，更显眼）
-        await answerTgCallback(cb.id, '✅ 撤销成功！', false, botToken);
-        
-        // 修改原消息内容并清空按钮
-        await editTgMessageText(chatId, messageId, successText, botToken);
-        
-      } catch (err) {
-        console.error('[Undo Error]', err);
-        await answerTgCallback(cb.id, '❌ 撤销失败，请稍后重试', true, botToken);
-      }
-    }
-
-    // --- 🌟 处理 4: 亲情转账回调 (tr:) ---
-    if (data.startsWith('tr:')) {
-      const [_, amountStr, targetChildId] = data.split(':');
-      const amount = parseInt(amountStr);
-
-      try {
-        // 校验发送者是谁
-        const auth = await c.env.DB.prepare(`SELECT internal_id FROM auth_bindings WHERE provider = 'telegram' AND provider_uid = ?`).bind(String(cb.from.id)).first();
-        if (!auth) return await answerTgCallback(cb.id, '❌ 身份校验失败', true, botToken);
-        
-        const senderChildId = auth.internal_id;
-        const sender = await c.env.DB.prepare(`SELECT name, (score_gained - score_spent) as balance, family_id FROM children WHERE id = ?`).bind(senderChildId).first();
-        const receiver = await c.env.DB.prepare(`SELECT name FROM children WHERE id = ?`).bind(targetChildId).first();
-
-        // 二次校验余额（防止多端并发点击超售）
-        if (!sender || sender.balance < amount) return await answerTgCallback(cb.id, '❌ 你的余额不足啦', true, botToken);
-
-        const doId = c.env.FAMILY_MANAGER.idFromName(sender.family_id);
-        const doObj = c.env.FAMILY_MANAGER.get(doId);
-
-        // 第 1 步：DO 扣除发送者积分
-        await doObj.fetch(new Request(`http://do/adjust`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            familyId: sender.family_id, childId: senderChildId, points: -amount,
-            operatorId: `tg_${cb.from.id}`, remark: `转账给 ${receiver.name}` 
-          })
-        }));
-
-        // 第 2 步：DO 增加接收者积分
-        await doObj.fetch(new Request(`http://do/adjust`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            familyId: sender.family_id, childId: targetChildId, points: amount,
-            operatorId: `tg_${cb.from.id}`, remark: `收到 ${sender.name} 的转账` 
-          })
-        }));
-
-        await answerTgCallback(cb.id, '✅ 转账成功！', false, botToken);
-        await editTgMessageText(chatId, messageId, `💖 <b>亲情互助成功</b>\n\n🎉 <b>${sender.name}</b> 大方地送给了 <b>${receiver.name}</b> <b>${amount}</b> 分！\n相亲相爱一家人~`, botToken);
-      } catch (err) {
-        await answerTgCallback(cb.id, '❌ 系统繁忙，转账失败', true, botToken);
-      }
-    }
-
-    // --- 🌟 处理 5: 提醒回调 (nd:) ---
-    if (data.startsWith('nd:')) {
-      const childId = data.split(':')[1];
-      try {
-        const child = await c.env.DB.prepare(`SELECT name, family_id FROM children WHERE id = ?`).bind(childId).first();
-        const family = await c.env.DB.prepare(`SELECT tg_group_id FROM families WHERE id = ?`).bind(child.family_id).first();
-        
-        if (!family || !family.tg_group_id) {
-           return await answerTgCallback(cb.id, '❌ 必须绑定家庭群组后才能发送群提醒', true, botToken);
-        }
-
-        const msg = `🔔 <b>嘀嘀！爱的提醒</b>\n\n👦 <b>${child.name}</b>，家长正在呼叫你！\n快去系统里看看有没有遗漏的打卡任务或待办事项吧~ 🚀`;
-        
-        // 关键：将消息发送到家庭群组
-        await sendTgMessage(botToken, family.tg_group_id, msg);
-        
-        await answerTgCallback(cb.id, `✅ 提醒已成功发送到群里！`, false, botToken);
-        await editTgMessageText(chatId, messageId, `✅ <b>提醒发送成功</b>\n\n已成功在家庭群组内呼叫 ${child.name}。`, botToken);
-      } catch (err) {
-        await answerTgCallback(cb.id, '❌ 提醒失败', true, botToken);
-      }
-    }
-
-    return c.json({ ok: true });
-  }
 
   return c.json({ ok: true });
 });
@@ -1299,6 +1316,7 @@ webhook.post('/root-bot', async (c) => {
         { command: 'nudge', description: '🔔 爱的提醒，戳一戳孩子去做任务' },
         { command: 'invite', description: '(管理员) 🔑 生成管理员邀请码' },
         { command: 'bindgroup', description: '(仅限群组) 🔗 绑定当前群组到家庭' },
+        { command: 'push_test', description: '(家长) 🔧 测试定时推送功能' },
         { command: 'help', description: '❓ 获取帮助' }
       ];
 

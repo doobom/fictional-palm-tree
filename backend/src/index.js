@@ -3,6 +3,8 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { platformAuth, requireAppUser } from './middlewares/auth.js';
 import { FamilyManager } from './do/FamilyManager.js';
+import { sendTgMessage } from './utils/telegram.js';
+import { generateDailyReport } from './utils/report.js';
 
 // 导入路由模块
 import auth from './routes/auth.js';
@@ -61,21 +63,21 @@ app.use('/api/*', requireAppUser);
 
 // 3. 路由注册
 // 💡 提示：如果前端请求的是 /api/auth/create-family，请确保这里的挂载路径与前端一致
-app.route('/api/auth', auth); // 之前是 '/auth'，建议统一加上 /api 前缀以匹配中间件规则
-app.route('/api/family', family);
-app.route('/api/children', children);
-app.route('/api/scores', scores);
-app.route('/api/rewards', rewards);
-app.route('/api/goals', goals);
-app.route('/api/achievements', achievements);
-app.route('/api/categories', categories);
-app.route('/api/analytics', analytics);
-app.route('/api/user', user);
-app.route('/api/system', system);
-app.route('/api/rules', rules); // 🌟 新增规则管理路由
-app.route('/api/approvals', approvals); // 🌟 新增审批相关路由
-app.route('/api/routines', routines); // 🌟 新增常规任务路由
-app.route('/api/webhook', webhook);
+app.route('/api/auth', auth); // 🌟 认证相关路由
+app.route('/api/family', family); // 🌟 家庭相关路由
+app.route('/api/children', children); // 🌟 儿童成员相关路由
+app.route('/api/scores', scores); // 🌟 积分相关路由
+app.route('/api/rewards', rewards); // 🌟 奖励相关路由
+app.route('/api/goals', goals); // 🌟 目标相关路由
+app.route('/api/achievements', achievements); // 🌟 成就相关路由
+app.route('/api/categories', categories); // 🌟 分类相关路由
+app.route('/api/analytics', analytics); // 🌟 分析相关路由
+app.route('/api/user', user); // 🌟 用户相关接口
+app.route('/api/system', system); // 🌟 系统相关接口
+app.route('/api/rules', rules); // 🌟 规则管理路由
+app.route('/api/approvals', approvals); // 🌟 审批相关路由
+app.route('/api/routines', routines); // 🌟 常规任务路由
+app.route('/api/webhook', webhook); // 🌟 BOT's Webhook 路由
 
 // 4. 健康检查与根路由
 app.get('/', (c) => c.text('Family Points System API (Edge Edition)'));
@@ -146,73 +148,55 @@ export default {
 
 /**
  * 🌟 核心推送逻辑：检查当前时间，并为符合条件的家庭生成日报
+ * 路由逻辑：优先发送至绑定的群组；若未绑定，则发送给所有管理员私聊。
  */
 async function handleScheduledPush(env) {
   if (!env.BOT_TOKEN || !env.DB) return;
 
-  // 1. 获取当前时间 (东八区)，格式化为 HH:mm
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  const currentTime = formatter.format(now); // 结果类似于 "20:00"
+  // 1. 获取东八区时间 (HH:mm)
+  const date = new Date(Date.now() + 8 * 3600 * 1000);
+  const hh = String(date.getUTCHours()).padStart(2, '0');
+  const mm = String(date.getUTCMinutes()).padStart(2, '0');
+  const currentTime = `${hh}:${mm}`; 
 
   try {
-    // 2. 从数据库找出所有开启了推送，并且推送时间等于当前分钟的家庭
+    // 2. 查找开启了推送且时间吻合的所有家庭 (不再限制必须有 tg_group_id)
     const families = await env.DB.prepare(`
       SELECT id, tg_group_id 
       FROM families 
-      WHERE push_enabled = 1 
-        AND push_time = ? 
-        AND tg_group_id IS NOT NULL
+      WHERE push_enabled = 1 AND push_time = ?
     `).bind(currentTime).all();
 
-    if (!families || families.results.length === 0) return; // 当前分钟没有需要推送的家庭
+    if (!families || families.results.length === 0) return;
 
-    // 3. 生成日报并循环发送
-    const todayStr = new Date(Date.now() + 8 * 3600 * 1000).toISOString().split('T')[0];
+    const todayStr = date.toISOString().split('T')[0];
 
     for (const family of families.results) {
       const familyId = family.id;
 
-      // 统计今日打卡项
-      const logs = await env.DB.prepare(`
-        SELECT c.name, COUNT(rl.id) as count 
-        FROM children c LEFT JOIN routine_logs rl ON c.id = rl.child_id AND rl.date_str = ? AND rl.status = 'completed'
-        WHERE c.family_id = ? GROUP BY c.id
-      `).bind(todayStr, familyId).all();
+      // 1. 确定推送目标 ID 列表
+      let targetChatIds = [];
+      if (family.tg_group_id) {
+        targetChatIds.push(family.tg_group_id);
+      } else {
+        const admins = await env.DB.prepare(`
+          SELECT ab.provider_uid 
+          FROM memberships m 
+          JOIN auth_bindings ab ON m.user_id = ab.internal_id 
+          WHERE m.family_id = ? AND m.role IN ('admin', 'superadmin') AND ab.provider = 'telegram'
+        `).bind(familyId).all();
+        targetChatIds = admins.results.map(a => a.provider_uid);
+      }
 
-      // 统计今日得分
-      const gains = await env.DB.prepare(`
-        SELECT c.name, SUM(h.points) as total 
-        FROM children c LEFT JOIN history h ON c.id = h.child_id AND date(h.created_at, '+8 hours') = ? AND h.points > 0 AND h.is_revoked = 0
-        WHERE c.family_id = ? GROUP BY c.id
-      `).bind(todayStr, familyId).all();
+      if (targetChatIds.length === 0) continue;
 
-      // 待办审批数
-      const pendingCount = await env.DB.prepare(`
-        SELECT COUNT(*) as c FROM approvals 
-        WHERE family_id = ? AND status = 'pending'
-      `).bind(familyId).first('c') || 0;
+      // 🌟 2. 核心优化：直接调用公共函数获取内容
+      const respText = await generateDailyReport(env.DB, familyId, "🌙 <b>【晚间家庭日报】</b>");
 
-      // 组装文本
-      let respText = `🌙 <b>【晚间家庭日报】</b> (${todayStr})\n\n`;
-      respText += `<b>📈 今日得分与打卡：</b>\n`;
-      logs.results.forEach((l, i) => {
-        const gain = gains.results[i]?.total || 0;
-        respText += `👦 <b>${l.name}</b>：赚取 ${gain} 分，完成 ${l.count} 项打卡\n`;
-      });
-
-      respText += `\n<b>📝 待办审批概况：</b>\n`;
-      respText += pendingCount > 0 
-        ? `有 <b>${pendingCount}</b> 个任务正在等您批阅！\n👉 请发送 /pending 快捷处理。` 
-        : `全部清空，完美的一天！辛苦啦！`;
-
-      // 发送到对应的家庭群组
-      await sendTgMessage(env.BOT_TOKEN, family.tg_group_id, respText);
+      // 3. 遍历发送给所有目标
+      for (const chatId of targetChatIds) {
+        await sendTgMessage(env.BOT_TOKEN, chatId, respText);
+      }
     }
   } catch (err) {
     console.error('[Cron Push Error]', err);
