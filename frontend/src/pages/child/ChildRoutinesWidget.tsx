@@ -6,10 +6,13 @@ import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
 
 export default function ChildRoutinesWidget() {
-  const { user } = useUserStore();
-  const [routines, setRoutines] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
+  //const { user } = useUserStore();
+  //const [routines, setRoutines] = useState<any[]>([]);
+  //const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  //const [checkingId, setCheckingId] = useState<string | null>(null);
+
+  const { user, currentFamilyId, routinesList, routineLogs, fetchRoutinesAction } = useUserStore();
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   // 获取本地今天的 YYYY-MM-DD 格式
@@ -17,32 +20,26 @@ export default function ChildRoutinesWidget() {
   const todayDayOfWeek = new Date().getDay(); // 0 是周日, 1-6 是周一到周六
 
   useEffect(() => {
-    if (user?.id) fetchRoutines();
-  }, [user?.id]);
+    if (currentFamilyId && user?.id) {
+      setLoading(true);
+      fetchRoutinesAction(currentFamilyId, user.id).finally(() => {
+        setLoading(false);
+      });
+    }
+  }, [currentFamilyId, user?.id, fetchRoutinesAction]);
 
-  const fetchRoutines = async () => {
-    setLoading(true);
-    try {
-      const res = await service.get<any, ApiResponse>(`/routines?childId=${user?.id}&dateStr=${todayStr}`);
-      if (res.success) {
-        // 过滤：1.只看全家的或我自己的 2.如果是每周重复，必须包含今天
-        const myActiveRoutines = res.data.routines.filter((r: any) => {
-          const isForMe = !r.child_id || r.child_id === user?.id;
-          let isToday = true;
-          if (r.frequency === 'weekly' && r.repeat_days) {
-            try {
-              const days = JSON.parse(r.repeat_days);
-              isToday = days.includes(todayDayOfWeek);
-            } catch (e) {}
-          }
-          return isForMe && isToday;
-        });
-
-        setRoutines(myActiveRoutines);
-        setLogs(res.data.logs || []);
-      }
-    } catch (e) {} finally { setLoading(false); }
-  };
+  // 🌟 在渲染前过滤：只看全家的或我自己的，并且包含今天
+  const routines = routinesList.filter((r: any) => {
+    const isForMe = !r.child_id || r.child_id === user?.id;
+    let isToday = true;
+    if (r.frequency === 'weekly' && r.repeat_days) {
+      try {
+        const days = JSON.parse(r.repeat_days);
+        isToday = days.includes(todayDayOfWeek);
+      } catch (e) {}
+    }
+    return isForMe && isToday;
+  });
 
   const handleCheckIn = async (routine: any) => {
     setCheckingId(routine.id);
@@ -59,11 +56,10 @@ export default function ChildRoutinesWidget() {
         } else {
           appToast.success('已提交！等待家长审核 🎁');
         }
-        fetchRoutines(); // 刷新状态
+        // 🌟 关键：打卡成功后触发全局刷新
+        fetchRoutinesAction(currentFamilyId!, user?.id); 
       }
-    } catch (e) {
-      // 错误由拦截器处理
-    } finally {
+    } catch (e) {} finally {
       setCheckingId(null);
     }
   };
@@ -80,7 +76,7 @@ export default function ChildRoutinesWidget() {
 
       <div className="space-y-3">
         {routines.map(routine => {
-          const log = logs.find(l => l.routine_id === routine.id);
+          const log = routineLogs.find(l => l.routine_id === routine.id);
           const isCompleted = log?.status === 'completed';
           const isPending = log?.status === 'pending';
           const isChecked = isCompleted || isPending;

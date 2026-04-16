@@ -6,17 +6,35 @@ import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
 
 export default function ParentRoutinesWidget() {
-  const { childrenList } = useUserStore();
-  const [routines, setRoutines] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
+  //const { childrenList } = useUserStore();
+  // const [routines, setRoutines] = useState<any[]>([]);
+  //const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  //const [checkingId, setCheckingId] = useState<string | null>(null);
+
+  // 🌟 引入 routineLogs，去掉本地的 [logs, setLogs]
+  const { childrenList, routinesList, routineLogs, fetchRoutinesAction, currentFamilyId } = useUserStore();
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const todayStr = new Date().toLocaleDateString('en-CA');
   const todayDayOfWeek = new Date().getDay();
 
-  useEffect(() => { fetchTodayData(); }, []);
+  const routines = routinesList.filter((r: any) => {
+    if (r.frequency === 'daily') return true;
+    try { return JSON.parse(r.repeat_days || '[]').includes(todayDayOfWeek); } catch { return false; }
+  });
 
+  useEffect(() => {
+    if (currentFamilyId) {
+      setLoading(true); // 开始拉取前设置为 loading
+      // 🌟 修复：拉取完成后，关闭 loading 状态
+      fetchRoutinesAction(currentFamilyId).finally(() => {
+        setLoading(false);
+      });
+    }
+  }, [currentFamilyId, fetchRoutinesAction]);
+
+  /*
   const fetchTodayData = async () => {
     setLoading(true);
     try {
@@ -33,6 +51,7 @@ export default function ParentRoutinesWidget() {
       }
     } catch (e) {} finally { setLoading(false); }
   };
+  */
 
   const handleAdminCheckin = async (routineId: string, childId: string, childName: string) => {
     setCheckingId(`${routineId}-${childId}`);
@@ -40,7 +59,8 @@ export default function ParentRoutinesWidget() {
       const res = await service.post<any, ApiResponse>('/routines/admin-checkin', { routineId, childId, dateStr: todayStr });
       if (res.success) {
         appToast.success(`已帮 ${childName} 完成打卡！`);
-        fetchTodayData(); // 刷新看板
+        // fetchTodayData(); // 刷新看板
+        fetchRoutinesAction(currentFamilyId!);
       }
     } catch (e) {} finally { setCheckingId(null); }
   };
@@ -70,7 +90,7 @@ export default function ParentRoutinesWidget() {
               {childrenList
                 .filter(c => !routine.child_id || routine.child_id === c.id) // 过滤该任务的适用人员
                 .map(child => {
-                  const log = logs.find(l => l.routine_id === routine.id && l.child_id === child.id);
+                  const log = routineLogs.find(l => l.routine_id === routine.id && l.child_id === child.id);
                   const isDone = log?.status === 'completed';
                   const isPending = log?.status === 'pending';
                   const isWorking = checkingId === `${routine.id}-${child.id}`;

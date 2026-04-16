@@ -1,6 +1,7 @@
 // frontend/src/store/index.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import service, { ApiResponse } from '../api/request';
 
 /**
  * 1. 基础业务模型接口定义
@@ -55,12 +56,16 @@ interface UserState {
   
   // 业务数据缓存
   childrenList: Child[];
+  routinesList: any[];
+  routineLogs: any[];
 
   // --- Actions ---
   setAuth: (data: { token?: string; tgData?: string }) => void;
   setUserInfo: (data: UserInfo) => void;
   setCurrentFamilyId: (id: string | null) => void;
   setChildrenList: (list: Child[]) => void;
+  setRoutinesList: (list: any[]) => void;
+  fetchRoutinesAction: (familyId: string, childId?: string) => Promise<void>;
   
   // 实时更新：用于 SSE 收到消息后直接修改内存数据
   updateScoreLocal: (childId: string, delta: number) => void;
@@ -82,6 +87,8 @@ export const useUserStore = create<UserState>()(
       families: [],
       currentFamilyId: null,
       childrenList: [],
+      routinesList: [],
+      routineLogs: [],
 
       // 设置 Token 或 TG 初始化数据
       setAuth: (data) => set((state) => ({
@@ -122,6 +129,32 @@ export const useUserStore = create<UserState>()(
         }));
       },
 
+      // 🌟 修复后的 fetchRoutinesAction
+      fetchRoutinesAction: async (familyId: string, childId?: string) => {
+        try {
+          const todayStr = new Date().toLocaleDateString('en-CA');
+          // 智能拼接 URL：如果是孩子端调用，带上 childId；如果是家长端，拉取全家
+          let url = `/routines?familyId=${familyId}&dateStr=${todayStr}`;
+          if (childId) {
+            url = `/routines?childId=${childId}&dateStr=${todayStr}`;
+          }
+
+          const res = await service.get<any, ApiResponse>(url);
+          if (res.success && res.data) {
+            // 🌟 核心修复：分别精准提取 routines 和 logs 数组
+            set({ 
+              routinesList: res.data.routines || [],
+              routineLogs: res.data.logs || []
+            });
+          }
+        } catch (error) {
+          console.error('获取任务列表失败:', error);
+        }
+      },
+      // 🌟 可选：手动更新列表（用于无需重新请求后端的场景）
+      setRoutinesList: (list: any[]) => set({ routinesList: list }),
+      setRoutineLogs: (logs: any[]) => set({ routineLogs: logs }),
+
       // 彻底清理状态
       logout: () => set({
         token: null,
@@ -130,6 +163,8 @@ export const useUserStore = create<UserState>()(
         families: [],
         currentFamilyId: null,
         childrenList: [],
+        routinesList: [],
+        routineLogs: []
       })
     }),
     {

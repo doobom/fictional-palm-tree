@@ -13,17 +13,23 @@ const WEEKDAYS = [
 
 export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { childrenList } = useUserStore();
-  const [routines, setRoutines] = useState<any[]>([]);
+  //const [routines, setRoutines] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ id: '', childId: '', name: '', points: 5, emoji: '📖', frequency: 'daily', repeatDays: [1,2,3,4,5], autoApprove: true });
-
+  // 🌟 从 Store 中获取数据和方法
+  const { routinesList, fetchRoutinesAction, currentFamilyId } = useUserStore();
+  const routines = routinesList;
+  useEffect(() => {
+    if (currentFamilyId) fetchRoutinesAction(currentFamilyId);
+  }, [currentFamilyId]);
+  /*
   useEffect(() => { if (isOpen) fetchRoutines(); }, [isOpen]);
 
   const fetchRoutines = async () => {
     const res = await service.get<any, ApiResponse>('/routines');
     if (res.success) setRoutines(res.data.routines);
   };
-
+  */
   const handleEdit = (r: any) => {
     setForm({
       id: r.id, childId: r.child_id || '', name: r.name, points: r.points, emoji: r.emoji,
@@ -36,7 +42,10 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
     if (!window.confirm('确定要删除吗？历史打卡记录将保留。')) return;
     await service.delete(`/routines/manage/${id}`);
     appToast.success('已删除');
-    fetchRoutines();
+    //fetchRoutines();
+    if (currentFamilyId) {
+      await fetchRoutinesAction(currentFamilyId);
+    }
   };
 
   const handleSubmit = async () => {
@@ -46,7 +55,10 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
     await service.post('/routines/manage/upsert', form);
     setShowForm(false);
     appToast.success('保存成功！');
-    fetchRoutines();
+    //fetchRoutines();
+    if (currentFamilyId) {
+      await fetchRoutinesAction(currentFamilyId);
+    }
   };
 
   const toggleDay = (dayVal: number) => {
@@ -57,23 +69,6 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
   };
 
   if (!isOpen) return null;
-
-  /*
-  return createPortal(
-    <div className={`fixed inset-0 z-[9999] flex flex-col justify-end ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-      <div className={`absolute inset-0 bg-black/40 dark:bg-black/60 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
-      
-      <div className={`absolute inset-x-0 bottom-0 bg-gray-50 dark:bg-gray-900 shadow-2xl pb-safe rounded-t-[24px] transition-all duration-300 transform ${isOpen ? 'translate-y-0' : 'translate-y-full'} flex flex-col max-h-[85vh]`}>
-        
-        <div className="w-full flex justify-center py-3"><div className="w-10 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full" /></div>
-        
-        <div className="px-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3 transition-colors">
-          <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-            <CalendarClock size={22} className="text-blue-500" />
-            <h3 className="text-lg font-bold">常规任务管理</h3>
-          </div>
-          <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-colors"><X size={18} /></button>
-        </div>*/
 
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex flex-col justify-end">
