@@ -13,7 +13,6 @@ const WEEKDAYS = [
 
 export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { childrenList } = useUserStore();
-  //const [routines, setRoutines] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ id: '', childId: '', name: '', points: 5, emoji: '📖', frequency: 'daily', repeatDays: [1,2,3,4,5], autoApprove: true });
   // 🌟 从 Store 中获取数据和方法
@@ -22,14 +21,7 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
   useEffect(() => {
     if (currentFamilyId) fetchRoutinesAction(currentFamilyId);
   }, [currentFamilyId]);
-  /*
-  useEffect(() => { if (isOpen) fetchRoutines(); }, [isOpen]);
 
-  const fetchRoutines = async () => {
-    const res = await service.get<any, ApiResponse>('/routines');
-    if (res.success) setRoutines(res.data.routines);
-  };
-  */
   const handleEdit = (r: any) => {
     setForm({
       id: r.id, childId: r.child_id || '', name: r.name, points: r.points, emoji: r.emoji,
@@ -42,7 +34,6 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
     if (!window.confirm('确定要删除吗？历史打卡记录将保留。')) return;
     await service.delete(`/routines/manage/${id}`);
     appToast.success('已删除');
-    //fetchRoutines();
     if (currentFamilyId) {
       await fetchRoutinesAction(currentFamilyId);
     }
@@ -55,7 +46,6 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
     await service.post('/routines/manage/upsert', form);
     setShowForm(false);
     appToast.success('保存成功！');
-    //fetchRoutines();
     if (currentFamilyId) {
       await fetchRoutinesAction(currentFamilyId);
     }

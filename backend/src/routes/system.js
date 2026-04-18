@@ -10,8 +10,12 @@ system.post('/feedback', async (c) => {
   const { text } = await c.req.json();
   if (!text) return c.json({ success: false, errorMessage: '内容不能为空' }, 400);
 
+  // 查找该用户的 Telegram ID
+  const auth = await c.env.DB.prepare(`SELECT provider_uid FROM auth_bindings WHERE internal_id = ? AND provider = 'telegram'`).bind(user.id).first();
+  const tgId = auth?.provider_uid || '未绑定TG';
+
   try {
-    const message = `🔔 收到新反馈\n\n👤 用户: ${user.nick_name || user.id}\n🏠 家庭 ID: ${user.familyId}\n\n📝 内容：\n${text}`;
+    const message = `🔔 收到新反馈\n\n👤 用户: ${user.nick_name || user.id}\n🏠 家庭 ID: ${user.familyId}\n\n📝 内容：\n${text}\n\n👉 快捷回复: \`/reply ${tgId} 你的回复内容\``;
     
     // 调用封装好的方法发送给所有超管
     await notifyRootAdmins(message, c.env);

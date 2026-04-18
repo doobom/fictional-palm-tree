@@ -6,11 +6,7 @@ import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
 
 export default function ParentRoutinesWidget() {
-  //const { childrenList } = useUserStore();
-  // const [routines, setRoutines] = useState<any[]>([]);
-  //const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  //const [checkingId, setCheckingId] = useState<string | null>(null);
 
   // 🌟 引入 routineLogs，去掉本地的 [logs, setLogs]
   const { childrenList, routinesList, routineLogs, fetchRoutinesAction, currentFamilyId } = useUserStore();
@@ -33,25 +29,6 @@ export default function ParentRoutinesWidget() {
       });
     }
   }, [currentFamilyId, fetchRoutinesAction]);
-
-  /*
-  const fetchTodayData = async () => {
-    setLoading(true);
-    try {
-      // 不传 childId，拉取全家今日数据
-      const res = await service.get<any, ApiResponse>(`/routines?dateStr=${todayStr}`);
-      if (res.success) {
-        // 过滤出今天应该执行的任务
-        const todayRoutines = res.data.routines.filter((r: any) => {
-          if (r.frequency === 'daily') return true;
-          try { return JSON.parse(r.repeat_days || '[]').includes(todayDayOfWeek); } catch { return false; }
-        });
-        setRoutines(todayRoutines);
-        setLogs(res.data.logs || []);
-      }
-    } catch (e) {} finally { setLoading(false); }
-  };
-  */
 
   const handleAdminCheckin = async (routineId: string, childId: string, childName: string) => {
     setCheckingId(`${routineId}-${childId}`);

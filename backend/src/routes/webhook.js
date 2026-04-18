@@ -45,6 +45,21 @@ webhook.post('/telegram', async (c) => {
 
   const botToken = c.env.BOT_TOKEN;
 
+  // 🛡️ 维护模式拦截器 (Maintenance Shield)
+  try {
+    const isMaint = await c.env.DB.prepare(`SELECT value FROM system_kv WHERE key = 'maintenance'`).first('value');
+    if (isMaint === '1') {
+      if (body.callback_query) {
+        await answerTgCallback(body.callback_query.id, '🚧 系统停机维护中，请稍后再试', true, botToken);
+      } else if (body.message && body.message.chat) {
+        await sendTgMessage(botToken, body.message.chat.id, `🚧 <b>系统正在进行维护升级中</b>\n\n预计很快恢复，请您耐心等待。`);
+      }
+      return c.json({ ok: true });
+    }
+  } catch(e) {
+    // 忽略表不存在的错误
+  }
+  
   // 处理按钮回调 (Callback Query)
   if (body.callback_query) {
     const cb = body.callback_query;
@@ -1289,9 +1304,12 @@ webhook.post('/root-bot', async (c) => {
       // 🌟 2. 一键设置快捷菜单 Commands
       const rootCommands = [
         { command: 'stats', description: '📊 查看系统运行大盘' },
+        { command: 'broadcast', description: '📢 发送全站公告' },
+        { command: 'reply', description: '💬 回复用户消息' },
+        { command: 'inspect', description: '🔍 诊断家庭健康状况' },
+        { command: 'maintenance', description: '🔧 启停维护模式' },
         { command: 'setup', description: '⚙️ 重新初始化配置' },
         { command: 'backup', description: '📦 导出系统数据' },
-        { command: 'broadcast', description: '📢 发送全站公告' },
         { command: 'help', description: '❓ 查看管理员帮助' }
       ];
       const userCommands = [
@@ -1376,13 +1394,70 @@ webhook.post('/root-bot', async (c) => {
       await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `✅ 广播发送完毕！\n成功送达 ${successCount} 个家庭群组。`);
     }
 
+    // --- 🌟 高级功能 1: /reply 客服系统闭环 ---
+    else if (command === '/reply') {
+      const parts = text.split(/\s+/);
+      const targetUid = parts[1];
+      const replyContent = parts.slice(2).join(' ');
+      
+      if (!targetUid || !replyContent) {
+        return await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `⚠️ <b>格式错误</b>\n请输入：<code>/reply [用户Telegram_ID] [回复内容]</code>`);
+      }
+
+      try {
+        // 🌟 重点：使用普通业务 Bot 的 Token 发送给用户，让用户感觉是系统在回复
+        await sendTgMessage(c.env.BOT_TOKEN, targetUid, `👨‍💻 <b>管理员回复您的反馈：</b>\n\n${replyContent}`);
+        await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `✅ 成功回复给用户 ${targetUid}。`);
+      } catch (err) {
+        await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `❌ 回复失败，该用户可能未激活机器人。`);
+      }
+    }
+
+    // --- 🌟 高级功能 2: /inspect 租户健康诊断 ---
+    else if (command === '/inspect') {
+      const targetId = text.split(/\s+/)[1];
+      if (!targetId) return await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `⚠️ 请输入家庭 ID，例如：<code>/inspect fam_xxx</code>`);
+
+      const family = await c.env.DB.prepare(`SELECT * FROM families WHERE id = ?`).bind(targetId).first();
+      if (!family) return await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `❌ 找不到该家庭。`);
+
+      const users = await c.env.DB.prepare(`SELECT COUNT(*) as c FROM memberships WHERE family_id = ?`).bind(targetId).first('c') || 0;
+      const children = await c.env.DB.prepare(`SELECT COUNT(*) as c FROM children WHERE family_id = ?`).bind(targetId).first('c') || 0;
+      const pendings = await c.env.DB.prepare(`SELECT COUNT(*) as c FROM approvals WHERE family_id = ? AND status = 'pending'`).bind(targetId).first('c') || 0;
+
+      const report = `🔍 <b>家庭诊断透视</b>\n\n🏠 <b>名称</b>: ${family.avatar || ''} ${family.name}\n🆔 <b>ID</b>: <code>${family.id}</code>\n👥 <b>成员</b>: ${users} 位家长, ${children} 名孩子\n🔗 <b>绑群</b>: ${family.tg_group_id ? `已绑定 (${family.tg_group_id})` : '未绑定'}\n⏰ <b>推送</b>: ${family.push_enabled ? `开启 (${family.push_time})` : '关闭'}\n⚠️ <b>积压审批</b>: ${pendings} 个待办`;
+      await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, report);
+    }
+
+    // --- 🌟 高级功能 3: /maintenance 维护模式启停 ---
+    else if (command === '/maintenance') {
+      const action = text.split(/\s+/)[1];
+      
+      // 动态创建系统配置表（如果不存在的话）
+      await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_kv (key TEXT PRIMARY KEY, value TEXT)`).run();
+
+      if (action === 'on') {
+        await c.env.DB.prepare(`INSERT INTO system_kv (key, value) VALUES ('maintenance', '1') ON CONFLICT(key) DO UPDATE SET value = '1'`).run();
+        await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `🚧 <b>维护模式已开启！</b>\n业务 Bot 将拦截所有普通用户请求。`);
+      } else if (action === 'off') {
+        await c.env.DB.prepare(`INSERT INTO system_kv (key, value) VALUES ('maintenance', '0') ON CONFLICT(key) DO UPDATE SET value = '0'`).run();
+        await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `✅ <b>维护模式已关闭！</b>\n系统已恢复正常响应。`);
+      } else {
+        const status = await c.env.DB.prepare(`SELECT value FROM system_kv WHERE key = 'maintenance'`).first('value');
+        await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `当前状态: ${status === '1' ? '🚧 维护中 (拦截请求)' : '✅ 正常运行'}\n\n开启: <code>/maintenance on</code>\n关闭: <code>/maintenance off</code>`);
+      }
+    }
+
     else if (text === '/help' || text === '/start') {
       await sendTgMessage(c.env.ROOT_BOT_TOKEN, senderId, `
 👑 <b>超级管理员控制台</b>
 
 /stats - 系统大盘
-/backup - 导出全站核心数据备份
 /broadcast [内容] - 发送全站公告
+/reply [用户TG_ID] [内容] - 回复用户反馈
+/inspect [家庭ID] - 诊断家庭健康状况
+/maintenance [on/off] - 启停维护模式
+/backup - 导出全站核心数据备份
 /setup - 一键配置 Webhook 与菜单
 /help - 帮助
       `);

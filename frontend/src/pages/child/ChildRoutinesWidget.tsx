@@ -6,11 +6,7 @@ import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
 
 export default function ChildRoutinesWidget() {
-  //const { user } = useUserStore();
-  //const [routines, setRoutines] = useState<any[]>([]);
-  //const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  //const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const { user, currentFamilyId, routinesList, routineLogs, fetchRoutinesAction } = useUserStore();
   const [checkingId, setCheckingId] = useState<string | null>(null);

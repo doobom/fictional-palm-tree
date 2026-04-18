@@ -122,6 +122,22 @@ export default {
         msg.ack();
       } catch (error) {
         console.error(`[Queue Error] ID: ${msg.id}, Error:`, error);
+
+        // 🚨 触发死信队列告警机制
+        if (env.ROOT_BOT_TOKEN && env.ROOT_ADMIN_TG_IDS) {
+           const adminIds = env.ROOT_ADMIN_TG_IDS.split(',');
+           for (const adminId of adminIds) {
+              try {
+                // 向超级管理员发送告警
+                await sendTgMessage(
+                  env.ROOT_BOT_TOKEN, 
+                  adminId.trim(), 
+                  `🚨 <b>系统异步任务告警</b>\n\n<b>动作</b>: ${data.action || '未知'}\n<b>消息ID</b>: <code>${msg.id}</code>\n<b>错误</b>: ${error.message}`
+                );
+              } catch(e) { /* 忽略推送告警本身的错误 */ }
+           }
+        }
+        
         // 如果处理失败，根据策略重试
         msg.retry();
       }
