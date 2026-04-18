@@ -8,7 +8,7 @@ import { appToast } from '../../utils/toast';
 export default function ChildRoutinesWidget() {
   const [loading, setLoading] = useState(true);
 
-  const { user, currentFamilyId, routinesList, routineLogs, fetchRoutinesAction } = useUserStore();
+  const { user, setChildrenList, currentFamilyId, routinesList, routineLogs, fetchRoutinesAction } = useUserStore();
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   // 获取本地今天的 YYYY-MM-DD 格式
@@ -53,7 +53,15 @@ export default function ChildRoutinesWidget() {
           appToast.success('已提交！等待家长审核 🎁');
         }
         // 🌟 关键：打卡成功后触发全局刷新
-        fetchRoutinesAction(currentFamilyId!, user?.id); 
+        // fetchRoutinesAction(currentFamilyId!, user?.id); 
+        // 1. 刷新习惯打卡板的 UI 状态 (变绿)
+        await fetchRoutinesAction(currentFamilyId!, user?.id); 
+        
+        // 🌟 2. 新增：重新拉取孩子列表，实时刷新首页顶部的积分卡片！
+        const childRes = await service.get<any, ApiResponse>('/children');
+        if (childRes.success && childRes.data) {
+          setChildrenList(childRes.data);
+        }
       }
     } catch (e) {} finally {
       setCheckingId(null);

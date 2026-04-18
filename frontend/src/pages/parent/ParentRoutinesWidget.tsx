@@ -9,7 +9,8 @@ export default function ParentRoutinesWidget() {
   const [loading, setLoading] = useState(true);
 
   // 🌟 引入 routineLogs，去掉本地的 [logs, setLogs]
-  const { childrenList, routinesList, routineLogs, fetchRoutinesAction, currentFamilyId } = useUserStore();
+  //const { childrenList, routinesList, routineLogs, fetchRoutinesAction, currentFamilyId } = useUserStore();
+  const { childrenList, setChildrenList, routinesList, routineLogs, fetchRoutinesAction, currentFamilyId } = useUserStore();
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -36,8 +37,14 @@ export default function ParentRoutinesWidget() {
       const res = await service.post<any, ApiResponse>('/routines/admin-checkin', { routineId, childId, dateStr: todayStr });
       if (res.success) {
         appToast.success(`已帮 ${childName} 完成打卡！`);
-        // fetchTodayData(); // 刷新看板
-        fetchRoutinesAction(currentFamilyId!);
+        // 1. 刷新习惯打卡板的 UI 状态 (变绿)
+        await fetchRoutinesAction(currentFamilyId!);
+        
+        // 🌟 2. 新增：重新拉取孩子列表，实时刷新首页顶部的积分卡片！
+        const childRes = await service.get<any, ApiResponse>('/children');
+        if (childRes.success || childRes.data) {
+          setChildrenList(childRes.data || childRes);
+        }
       }
     } catch (e) {} finally { setCheckingId(null); }
   };
