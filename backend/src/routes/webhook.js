@@ -1225,7 +1225,7 @@ webhook.post('/lark-bot', async (c) => {
           c.env.DB.prepare(`UPDATE children SET score_spent = score_spent + ? WHERE id = ?`).bind(record.cost, record.child_id),
           c.env.DB.prepare(`UPDATE rewards SET stock = stock - 1 WHERE id = ? AND stock > 0`).bind(record.reward_id)
         ]);
-        c.executionCtx.waitUntil(checkAchievementUnlock(c.env.DB, userRecord.family_id, record.child_id));
+        c.executionCtx.waitUntil(checkAchievementUnlock(c.env.DB, c.env, userRecord.family_id, record.child_id));
       } else {
         await c.env.DB.prepare(`UPDATE redemptions SET status = 'rejected', approved_by = ? WHERE id = ?`).bind(userRecord.internal_id, redemptionId).run();
       }

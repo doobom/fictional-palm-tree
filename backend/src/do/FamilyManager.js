@@ -12,6 +12,12 @@ export class FamilyManager {
    * 核心处理入口
    */
   async fetch(request) {
+    // 🌟 新增：确保 DO 实例挂载了后台定时清理任务 (每 24 小时执行一次)
+    const currentAlarm = await this.state.storage.getAlarm();
+    if (currentAlarm == null) {
+      await this.state.storage.setAlarm(Date.now() + 24 * 60 * 60 * 1000);
+    }
+
     const url = new URL(request.url);
 
     if (url.pathname === "/events") {
@@ -275,5 +281,39 @@ export class FamilyManager {
         this.sessions.delete(session);
       }
     }
+  }
+  /**
+   * 🌟 定时任务：清理过期的 limitKey (由 DO Alarm 自动触发)
+   */
+  async alarm() {
+    console.log("[DO Alarm] 开始定期清理过期的每日限额记录...");
+    
+    // 获取 48 小时前的日期字符串 (YYYY-MM-DD)，作为绝对安全的清理界限，避免跨时区误删
+    const safeCutoffDate = new Date(Date.now() - 48 * 3600 * 1000);
+    const safeCutoffStr = safeCutoffDate.toISOString().split('T')[0];
+
+    // 列出所有以 limit: 开头的键值对
+    const limits = await this.state.storage.list({ prefix: 'limit:' });
+    const keysToDelete = [];
+
+    for (const key of limits.keys()) {
+      // key 格式: limit:childId:ruleId:YYYY-MM-DD
+      // 提取最后 10 位，即日期字符串
+      const dateStr = key.substring(key.length - 10);
+      
+      // 字典序比对：如果日期小于 48 小时前，说明绝对过期了
+      if (dateStr < safeCutoffStr) {
+        keysToDelete.push(key);
+      }
+    }
+
+    // 批量删除过期数据
+    if (keysToDelete.length > 0) {
+      await this.state.storage.delete(keysToDelete);
+      console.log(`[DO Alarm] 成功清理了 ${keysToDelete.length} 个过期的限额记录。`);
+    }
+
+    // 重新设定下一次 24 小时后的清理任务
+    await this.state.storage.setAlarm(Date.now() + 24 * 60 * 60 * 1000);
   }
 }

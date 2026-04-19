@@ -1,6 +1,7 @@
 // backend/src/queues/scoreHandler.js
 import { nanoid } from 'nanoid';
 import { sendTgMessage } from '../utils/telegram.js';
+import { checkAchievementUnlock } from '../routes/achievements.js'; // 🌟 新增引入
 
 /**
  * 核心处理器：处理积分变动后的后续逻辑
@@ -24,7 +25,9 @@ export async function handleScoreChangeTasks(data, env) {
   await updateGoalsProgress(data, env); 
 
   // 2. 检查成就解锁
-  await checkAchievements(childId, familyId, env);
+  //await checkAchievements(childId, familyId, env);
+  // 🌟 注意：成就检查放在目标更新后，因为有些成就可能依赖于目标达成的分数变化
+  await checkAchievementUnlock(env.DB, env, familyId, childId);
 }
 // 🌟 1. 抽离出一个纯元数据字典，专门给前端展示成就墙用
 export const ACHIEVEMENTS_META = [

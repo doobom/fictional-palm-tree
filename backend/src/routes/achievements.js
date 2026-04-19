@@ -1,33 +1,36 @@
-// src/routes/achievements.js
+// backend/src/routes/achievements.js
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
-import { ACHIEVEMENTS_META } from '../queues/scoreHandler.js';
+import { ACHIEVEMENTS_META } from '../queues/scoreHandler.js'; // 🌟 直接复用元数据
+import { sendTgMessage } from '../utils/telegram.js';
 
 const achievements = new Hono();
 
-// 成就定义配置 (🌟 多语言改造：移除 hardcode 的中文 name，只保留核心判定规则)
-// 前端拿到 achievement_key 后，自己使用 i18n 翻译名称和描述
+// 🌟 1. 严格对齐 scoreHandler.js 中的 key，并设定目标阈值
 const ACHIEVEMENT_RULES = {
-  'first_plus': { target: 1 },
-  'points_100': { target: 100 },
-  'points_1000': { target: 1000 },
-  'redeem_first': { target: 1 }
+  'first_blood': { target: 1 },
+  'score_100': { target: 100 },
+  'score_500': { target: 500 },
+  'score_1000': { target: 1000 },
+  'first_redeem': { target: 1 },
+  'redeem_5': { target: 5 },
+  'task_10': { target: 10 },
+  'task_50': { target: 50 }
 };
 
+/**
+ * 1. 获取成就墙与清除红点
+ */
 achievements.get('/', async (c) => {
   const user = c.get('user');
   const childId = c.req.query('childId');
 
-  if (!childId) {
-    return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
-  }
+  if (!childId) return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
 
   try {
-    // 🌟 A. 物理清除数据库中的红点标记
     await c.env.DB.prepare(`UPDATE children SET has_new_achievement = 0 WHERE id = ? AND family_id = ?`)
       .bind(childId, user.familyId).run();
 
-    // B. 查询成就记录
     const { results } = await c.env.DB.prepare(`
       SELECT achievement_key, unlocked, progress, unlocked_at, is_manual, manual_name, manual_emoji
       FROM achievements WHERE child_id = ? AND family_id = ?
@@ -36,7 +39,6 @@ achievements.get('/', async (c) => {
     const dbStateMap = new Map();
     results.forEach(r => dbStateMap.set(r.achievement_key, r));
 
-    // 将预设字典和你数据库里的状态合并
     const data = ACHIEVEMENTS_META.map(meta => {
       const dbInfo = dbStateMap.get(meta.key);
       return {
@@ -49,18 +51,17 @@ achievements.get('/', async (c) => {
 
     return c.json({ success: true, data });
   } catch (error) {
-    console.error(`[DB Error] Fetch achievements failed:`, error.message);
     return c.json({ success: false, errorMessage: error.message }, 500);
   }
 });
+
 /**
- * 2. 手动颁发勋章：严格权限隔离
+ * 2. 手动颁发勋章
  */
 achievements.post('/manual-issue', async (c) => {
   const user = c.get('user');
   const { childId, name, emoji } = await c.req.json();
 
-  // 🌟 权限隔离：仅允许非 viewer 角色的家长操作
   if (user.userType !== 'parent' || user.role === 'viewer') {
     return c.json({ success: false, errorCode: 'ERR_FORBIDDEN' }, 403);
   }
@@ -69,79 +70,83 @@ achievements.post('/manual-issue', async (c) => {
     const achievementId = crypto.randomUUID();
     const achievementKey = `manual_${Date.now()}`;
 
-    // A. 写入成就表
     await c.env.DB.prepare(`
       INSERT INTO achievements (id, family_id, child_id, achievement_key, unlocked, unlocked_at, is_manual, manual_name, manual_emoji)
       VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, 1, ?, ?)
     `).bind(achievementId, user.familyId, childId, achievementKey, name, emoji).run();
 
-    // 🌟 B. 标记红点
     await c.env.DB.prepare(`UPDATE children SET has_new_achievement = 1 WHERE id = ?`).bind(childId).run();
 
-    // C. 通过 DO 实时通知全家
     const doId = c.env.FAMILY_MANAGER.idFromName(user.familyId);
     const doObj = c.env.FAMILY_MANAGER.get(doId);
-    await doObj.fetch(new Request(`${new URL(c.req.url).origin}/internal/broadcast-achievement`, {
+    await doObj.fetch(new Request(`http://do/internal/broadcast-achievement`, {
       method: 'POST',
-      body: JSON.stringify({ 
-        childId, 
-        hasNew: true, // 告知前端需要显示红点
-        achievements: [{ name, emoji, is_manual: true }] 
-      })
+      body: JSON.stringify({ childId, hasNew: true, achievements: [{ name, emoji, is_manual: true }] })
     }));
+
+    c.executionCtx.waitUntil((async () => {
+      const child = await c.env.DB.prepare(`SELECT name FROM children WHERE id = ?`).bind(childId).first();
+      const family = await c.env.DB.prepare(`SELECT tg_group_id FROM families WHERE id = ?`).bind(user.familyId).first();
+      
+      if (family?.tg_group_id && c.env.BOT_TOKEN) {
+        const msg = `🎖️ <b>荣誉颁发！</b>\n\n家长刚刚为 <b>${child.name}</b> 颁发了一枚专属勋章：\n\n${emoji} <b>${name}</b>\n\n棒棒哒，继续保持哦！✨`;
+        await sendTgMessage(c.env.BOT_TOKEN, family.tg_group_id, msg);
+      }
+    })());
 
     return c.json({ success: true });
   } catch (e) {
     return c.json({ success: false, errorMessage: e.message }, 500);
   }
 });
+
 /**
- * 1. 获取成就墙
- * GET /api/achievements/:childId
+ * 3. 获取成就墙 (用于内部调用)
  */
 achievements.get('/:childId', async (c) => {
   const user = c.get('user');
   const childId = c.req.param('childId');
-
-  if (!childId) {
-    console.warn(`[Business Warn] 获取成就墙失败: 缺少 childId. User: ${user.internalId}`);
-    return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS', errorMessage: 'Missing childId' }, 400);
-  }
+  if (!childId) return c.json({ success: false, errorCode: 'ERR_MISSING_PARAMS' }, 400);
 
   try {
-    const { results } = await c.env.DB.prepare(`
-      SELECT achievement_key, progress, unlocked, unlocked_at 
-      FROM achievements 
-      WHERE child_id = ? AND family_id = ?
-    `).bind(childId, user.familyId).all();
-
+    const { results } = await c.env.DB.prepare(`SELECT achievement_key, progress, unlocked, unlocked_at FROM achievements WHERE child_id = ? AND family_id = ?`).bind(childId, user.familyId).all();
     return c.json({ success: true, data: results });
   } catch (error) {
-    console.error(`[System Error] 获取成就墙数据库查询失败. Family: ${user.familyId}, Error:`, error);
-    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR', errorMessage: 'Failed to fetch achievements' }, 500);
+    return c.json({ success: false, errorCode: 'ERR_SYSTEM_ERROR' }, 500);
   }
 });
 
 /**
- * 内部辅助函数：检查并更新成就 (通常被 scores.js 或 rewards.js 异步调用)
- * 注意：这是内部函数，不返回 HTTP Response，但需要记录日志
+ * 🌟 核心辅助函数：检查并更新成就
  */
-export async function checkAchievementUnlock(db, familyId, childId) {
+export async function checkAchievementUnlock(db, env, familyId, childId) {
   try {
+    // 🌟 2. 修复 SQL：补充获取 routine_logs 的完成次数 (task_count)
     const child = await db.prepare(`
-      SELECT score_gained, 
-      (SELECT COUNT(*) FROM redemptions WHERE child_id = ? AND status = 'approved') as redeem_count
+      SELECT name, score_gained, 
+      (SELECT COUNT(*) FROM redemptions WHERE child_id = ? AND status = 'approved') as redeem_count,
+      (SELECT COUNT(*) FROM routine_logs WHERE child_id = ? AND status = 'completed') as task_count
       FROM children WHERE id = ?
-    `).bind(childId, childId).first();
+    `).bind(childId, childId, childId).first();
 
     if (!child) return;
 
+    const existing = await db.prepare(`SELECT achievement_key FROM achievements WHERE child_id = ? AND unlocked = 1`).bind(childId).all();
+    const alreadyUnlockedKeys = new Set(existing.results.map(r => r.achievement_key));
+
+    // 🌟 3. 严格映射到全新的规则 key
     const stats = {
-      'first_plus': child.score_gained >= 1 ? 1 : 0,
-      'points_100': child.score_gained,
-      'points_1000': child.score_gained,
-      'redeem_first': child.redeem_count
+      'first_blood': child.score_gained >= 1 ? 1 : 0,
+      'score_100': child.score_gained,
+      'score_500': child.score_gained,
+      'score_1000': child.score_gained,
+      'first_redeem': child.redeem_count,
+      'redeem_5': child.redeem_count,
+      'task_10': child.task_count,
+      'task_50': child.task_count
     };
+
+    const newlyUnlockedKeys = [];
 
     for (const [key, currentVal] of Object.entries(stats)) {
       const rule = ACHIEVEMENT_RULES[key];
@@ -149,6 +154,10 @@ export async function checkAchievementUnlock(db, familyId, childId) {
 
       const progress = Math.min(Math.floor((currentVal / rule.target) * 100), 100);
       const isUnlocked = progress >= 100 ? 1 : 0;
+      
+      if (isUnlocked === 1 && !alreadyUnlockedKeys.has(key)) {
+        newlyUnlockedKeys.push(key);
+      }
       
       await db.prepare(`
         INSERT INTO achievements (id, family_id, child_id, achievement_key, progress, unlocked, unlocked_at)
@@ -159,8 +168,35 @@ export async function checkAchievementUnlock(db, familyId, childId) {
           unlocked_at = CASE WHEN unlocked = 0 AND excluded.unlocked = 1 THEN CURRENT_TIMESTAMP ELSE unlocked_at END
       `).bind(nanoid(12), familyId, childId, key, progress, isUnlocked).run();
     }
+
+    if (newlyUnlockedKeys.length > 0) {
+      await db.prepare(`UPDATE children SET has_new_achievement = 1 WHERE id = ?`).bind(childId).run();
+
+      if (env.FAMILY_MANAGER) {
+        const doId = env.FAMILY_MANAGER.idFromName(familyId);
+        const doObj = env.FAMILY_MANAGER.get(doId);
+        await doObj.fetch(new Request(`http://do/internal/broadcast-achievement`, {
+          method: 'POST',
+          body: JSON.stringify({ childId, hasNew: true })
+        }));
+      }
+
+      if (env.BOT_TOKEN) {
+        const family = await db.prepare(`SELECT tg_group_id FROM families WHERE id = ?`).bind(familyId).first();
+        if (family?.tg_group_id) {
+          // 🌟 4. 直接提取 ACHIEVEMENTS_META 中的 Emoji 和中文描述
+          const unlockedNames = newlyUnlockedKeys.map(k => {
+            const meta = ACHIEVEMENTS_META.find(m => m.key === k);
+            return meta ? `${meta.emoji} <b>${meta.name}</b> - ${meta.desc}` : k;
+          }).join('\n✨ ');
+
+          const msg = `🎉 <b>解锁系统新成就！</b>\n\n👦 <b>${child.name}</b> 的努力得到了回报，刚刚达成了：\n\n✨ ${unlockedNames}\n\n快去系统里查看点亮的勋章吧！🏅`;
+          await sendTgMessage(env.BOT_TOKEN, family.tg_group_id, msg);
+        }
+      }
+    }
+
   } catch (error) {
-    // 异步任务失败不影响主流程，但必须在 Worker 日志里留下痕迹
     console.error(`[System Error] 异步检查成就解锁失败. Child: ${childId}, Error:`, error);
   }
 }
