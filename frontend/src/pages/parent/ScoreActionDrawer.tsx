@@ -12,9 +12,10 @@ export interface ScoreActionDrawerProps {
   onSuccess?: () => void;
   child: Child | null;
   initialAction?: 'add' | 'deduct'; // 🌟 新增：接收外部传来的初始操作类型
+  prefillRule?: any; // 🌟 新增：接收预填充规则
 }
 
-export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, initialAction = 'add' }: ScoreActionDrawerProps) {
+export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, initialAction = 'add', prefillRule }: ScoreActionDrawerProps) {
   const { t } = useTranslation();
   const { updateScoreLocal, families, currentFamilyId } = useUserStore();
   const currentFamily = families.find(f => f.id === currentFamilyId);
@@ -28,8 +29,20 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
 
   useEffect(() => {
     if (isOpen && child) {
-      setActionType(initialAction); setPoints(''); setRemark('');
       document.body.style.overflow = 'hidden';
+
+      // 🌟 自动填充逻辑
+      if (prefillRule) {
+        setActionType(prefillRule.points > 0 ? 'add' : 'deduct');
+        setPoints(Math.abs(prefillRule.points));
+        setRemark(prefillRule.name);
+        setRuleId(prefillRule.id); // 绑定规则ID，这样发分后可以统计到今天用了几次
+      } else {
+        setActionType(initialAction);
+        setPoints('');
+        setRemark('');
+        setRuleId(null);
+      }
 
       service.get<any, ApiResponse>(`/rules?childId=${child.id}`).then(res => {
         if (res.success && res.data) {
@@ -41,7 +54,7 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isOpen, child]);
+  }, [isOpen, child, prefillRule, initialAction]); // 🌟 依赖项加上 prefillRule
 
   const handleSubmit = async () => {
     if (!child) return;

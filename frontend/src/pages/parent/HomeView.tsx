@@ -31,6 +31,12 @@ export default function HomeView() {
   const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 🌟 新增：规则筛选状态 ('all' | 'reward' | 'penalty')
+  const [ruleFilter, setRuleFilter] = useState<'all' | 'reward' | 'penalty'>('all');
+
+  // 🌟 新增：用于存储即将传给抽屉的规则数据
+  const [prefillRule, setPrefillRule] = useState<any>(null);
+
   // 抽屉控制状态
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   // 🌟 1. 增加控制积分调整抽屉的 State
@@ -104,6 +110,29 @@ export default function HomeView() {
   const openBatchAction = () => {
     setBatchDrawerOpen(true);
   };
+
+  // 🌟 新增：规则点击处理逻辑
+  const handleRuleClick = (rule: any) => {
+    if (myRole === 'viewer') return; 
+
+    setPrefillRule(rule); // 🌟 记录点击的规则，准备传给抽屉
+
+    if (rule.child_id) {
+      const targetChild = childrenList.find((c: Child) => c.id === rule.child_id);
+      if (targetChild) {
+        openScoreAction(targetChild, rule.points > 0 ? 'add' : 'deduct');
+      }
+    } else {
+      openBatchAction();
+    }
+  };
+
+  // 🌟 新增：根据筛选条件过滤规则
+  const filteredRules = rules.filter(rule => {
+    if (ruleFilter === 'reward') return rule.points > 0;
+    if (ruleFilter === 'penalty') return rule.points < 0;
+    return true; // 'all'
+  });
 
   if (!currentFamilyId) {
     return <div className="p-10 text-center text-gray-500 dark:text-gray-400 font-bold transition-colors">请先选择家庭</div>;
@@ -225,10 +254,11 @@ export default function HomeView() {
           3. 家庭规则/任务看板
       ======================= */}
       <section className="pt-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2 transition-colors"><Star className="text-yellow-400" /> 家庭规则</h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2 transition-colors">
+            <Star className="text-yellow-400" /> 家庭规则
+          </h2>
           {myRole !== 'viewer' && (
-            /* 🌟 绑定 onClick 事件 */
             <button 
               onClick={() => setRulesManagerOpen(true)} 
               className="text-blue-600 dark:text-blue-400 font-bold text-sm bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full transition-colors active:scale-95"
@@ -238,23 +268,52 @@ export default function HomeView() {
           )}
         </div>
 
-        {rules.length === 0 && !loading ? (
+        {/* 🌟 新增：分类筛选器 */}
+        {rules.length > 0 && (
+          <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar pb-1">
+            <button 
+              onClick={() => setRuleFilter('all')}
+              className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${ruleFilter === 'all' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
+            >
+              全部规则
+            </button>
+            <button 
+              onClick={() => setRuleFilter('reward')}
+              className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${ruleFilter === 'reward' ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
+            >
+              🏆 赚取积分
+            </button>
+            <button 
+              onClick={() => setRuleFilter('penalty')}
+              className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${ruleFilter === 'penalty' ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
+            >
+              ⚠️ 扣除积分
+            </button>
+          </div>
+        )}
+
+        {filteredRules.length === 0 && !loading ? (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 transition-colors">
-            <p className="text-gray-400 dark:text-gray-500 font-bold text-sm transition-colors">暂无设立的家庭规则</p>
+            <p className="text-gray-400 dark:text-gray-500 font-bold text-sm transition-colors">
+              {rules.length === 0 ? '暂无设立的家庭规则' : '没有符合该分类的规则'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {rules.map(rule => (
-              /* 🌟 列表卡片适配 */
+            {/* 🌟 修改：遍历 filteredRules，并增加 onClick 点击事件和交互样式 */}
+            {filteredRules.map(rule => (
               <div 
                 key={rule.id} 
-                className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300"
+                onClick={() => handleRuleClick(rule)}
+                className={`flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-200 ${myRole !== 'viewer' ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 active:scale-[0.98]' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{rule.emoji || '⭐'}</span>
                   <div>
                     <p className="font-bold text-gray-800 dark:text-gray-100 transition-colors">{rule.name}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-medium transition-colors">适用于: {rule.child_id ? childrenList.find(c => c.id === rule.child_id)?.name : '所有人'}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 font-medium transition-colors">
+                      {rule.child_id ? `专属: ${childrenList.find((c: Child) => c.id === rule.child_id)?.name}` : '全家通用'}
+                    </p>
                   </div>
                 </div>
                 <div className={`font-black text-lg transition-colors ${rule.points > 0 ? 'text-blue-500 dark:text-blue-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -269,15 +328,17 @@ export default function HomeView() {
       {/* 🌟 1. 挂载操作抽屉 */}
       <ScoreActionDrawer 
         isOpen={scoreDrawerOpen} 
-        onClose={() => setScoreDrawerOpen(false)} 
+        onClose={() => { setScoreDrawerOpen(false); setPrefillRule(null); }} 
         onSuccess={fetchDashboardData}
         child={activeChild} 
         initialAction={initialScoreAction} // 🌟 传递初始操作类型到抽屉组件
+        prefillRule={prefillRule} // 🌟 传入规则数据
       />
       {/* 🌟 2. 挂载批量操作抽屉 */}
       <BatchActionDrawer 
         isOpen={batchDrawerOpen} 
-        onClose={() => setBatchDrawerOpen(false)} 
+        onClose={() => { setBatchDrawerOpen(false); setPrefillRule(null); }} 
+        prefillRule={prefillRule} // 🌟 传入规则数据
       />
       {/* 🌟 3. 挂载规则管理抽屉 */}
       <RulesManagerDrawer 

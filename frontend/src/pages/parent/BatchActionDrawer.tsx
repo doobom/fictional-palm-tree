@@ -8,9 +8,10 @@ import { appToast } from '../../utils/toast';
 export interface BatchActionDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  prefillRule?: any; // 🌟 新增：接收预填充规则
 }
 
-export default function BatchActionDrawer({ isOpen, onClose }: BatchActionDrawerProps) {
+export default function BatchActionDrawer({ isOpen, onClose, prefillRule }: BatchActionDrawerProps) {
   const { updateScoreLocal, childrenList, families, currentFamilyId } = useUserStore();
   const currentFamily = families.find(f => f.id === currentFamilyId);
 
@@ -23,13 +24,23 @@ export default function BatchActionDrawer({ isOpen, onClose }: BatchActionDrawer
   useEffect(() => {
     if (isOpen) {
       setSelectedChildIds(new Set(childrenList.map((c: Child) => c.id)));
-      setActionType('add'); setPoints(''); setRemark('');
       document.body.style.overflow = 'hidden';
+
+      // 🌟 自动填充逻辑
+      if (prefillRule) {
+        setActionType(prefillRule.points > 0 ? 'add' : 'deduct');
+        setPoints(Math.abs(prefillRule.points));
+        setRemark(prefillRule.name);
+      } else {
+        setActionType('add'); 
+        setPoints(''); 
+        setRemark('');
+      }
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isOpen, childrenList]);
+  }, [isOpen, childrenList, prefillRule]); // 🌟 依赖项加上 prefillRule
 
   const toggleChild = (id: string) => {
     const newSet = new Set(selectedChildIds);
