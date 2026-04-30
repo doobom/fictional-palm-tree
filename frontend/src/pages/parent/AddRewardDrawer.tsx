@@ -58,7 +58,7 @@ export default function AddRewardDrawer({ isOpen, onClose, onSuccess, existingDa
         require_approval: requireApproval ? 1 : 0, categoryId: categoryId || null
       });
       onSuccess(); onClose();
-      appToast.success(t('parent.add_reward_success', '奖品上架成功！'));
+      appToast.success(t('parent.reward_add_success', '奖品上架成功！'));
     } finally { setLoading(false); }
   };
 
@@ -71,45 +71,45 @@ export default function AddRewardDrawer({ isOpen, onClose, onSuccess, existingDa
 
         <div className="px-5 pb-2 relative transition-colors">
           <button onClick={onClose} className="absolute right-5 top-0 w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 font-bold">✕</button>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{existingData ? '编辑奖品' : '新增奖品'}</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{existingData ? t('parent.reward_edit') : t('parent.reward_add')}</h3>
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
           <form id="rewardForm" onSubmit={handleSubmit} className="space-y-4">
             <div className="flex space-x-3">
               <div className="w-1/4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">图标</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common.emoji')}</label>
                 <input type="text" maxLength={2} value={emoji} onChange={(e) => setEmoji(e.target.value)} className="h-12 w-full px-2 text-center text-2xl rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" />
               </div>
               <div className="w-3/4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">名称</label>
-                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：看电视一小时" className="h-12 w-full px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors font-medium" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common.name')}</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder={t('parent.reward_name_placeholder')} className="h-12 w-full px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors font-medium" />
               </div>
             </div>
 
             <div className="flex space-x-3">
               <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">所需积分</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('parent.reward_cost_label')}</label>
                 <input type="number" required min="1" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" className="h-12 w-full px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors font-medium" />
               </div>
               <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">库存限制</label>
-                <input type="number" min="1" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="∞ (不限)" className="h-12 w-full px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors font-medium" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('parent.reward_stock_label')}</label>
+                <input type="number" min="1" value={stock} onChange={(e) => setStock(e.target.value)} placeholder={t('parent.reward_stock_placeholder')} className="h-12 w-full px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors font-medium" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">所属分类</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('parent.reward_category_label')}</label>
               <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="h-12 w-full px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none border-none transition-colors">
-                <option value="">未分类</option>
+                <option value="">{t('parent.reward_category_none')}</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl mt-2 transition-colors">
               <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm transition-colors">需要家长审批</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors">兑换后需家长同意才生效</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm transition-colors">{t('parent.reward_require_approval')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors">{t('parent.reward_require_approval_desc')}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" className="sr-only peer" checked={requireApproval} onChange={(e) => setRequireApproval(e.target.checked)} />
@@ -121,7 +121,7 @@ export default function AddRewardDrawer({ isOpen, onClose, onSuccess, existingDa
 
         <div className="p-5 pt-2 bg-white dark:bg-gray-900 transition-colors" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 20px)' }}>
           <button type="submit" form="rewardForm" disabled={loading} className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600 text-white rounded-xl font-semibold text-lg transition-colors">
-            {loading ? '提交中...' : '保存奖品'}
+            {loading ? t('common.submitting') : t('parent.reward_save_btn', 'Save Reward')}
           </button>
         </div>
       </div>

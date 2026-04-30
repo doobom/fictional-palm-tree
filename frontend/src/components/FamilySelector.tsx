@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useUserStore, Family } from '../store';
 import { appToast } from '../utils/toast';
 import { ChevronDown, ChevronUp, Check, Plus, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const FamilySelector: React.FC = () => {
   const { families, currentFamilyId, setCurrentFamilyId } = useUserStore();
   const [isOpen, setIsOpen] = useState(false);
+  const { t } = useTranslation();
 
   const currentFamily = families.find((f: Family) => f.id === currentFamilyId);
 
@@ -20,7 +22,7 @@ const FamilySelector: React.FC = () => {
     if (id === currentFamilyId) { setIsOpen(false); return; }
     setCurrentFamilyId(id);
     setIsOpen(false);
-    appToast.success(`已切换至：${families.find((f: Family) => f.id === id)?.name || '未知家庭'}`);
+    appToast.success(t('parent.family_selector_switch_success', { familyName: families.find((f: Family) => f.id === id)?.name }) || t('parent.family_selector_unknown_family') );
   };
 
   return (
@@ -35,7 +37,7 @@ const FamilySelector: React.FC = () => {
           <div className="flex items-center gap-3 w-full overflow-hidden">
             <span className="text-3xl shrink-0 drop-shadow-sm">{currentFamily?.avatar || '🏠'}</span>
             <div className="text-left flex-1 overflow-hidden">
-              <p className="text-base font-bold text-gray-900 dark:text-gray-100 truncate transition-colors">{currentFamily?.name || '选择家庭'}</p>
+              <p className="text-base font-bold text-gray-900 dark:text-gray-100 truncate transition-colors">{currentFamily?.name || t('parent.family_selector_choose_family')}</p>
               <p className="text-xs text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mt-0.5 truncate transition-colors">{currentFamily?.role || 'MEMBER'}</p>
             </div>
           </div>
@@ -50,12 +52,12 @@ const FamilySelector: React.FC = () => {
             <div className="p-2 max-h-[60vh] overflow-y-auto">
               
               <div className="px-3 py-2 flex justify-between items-center">
-                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">切换家庭</p>
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('parent.family_selector_switch_family')}</p>
                 <button 
                   onClick={() => setIsOpen(false)} 
                   className="flex items-center gap-1 text-xs font-bold text-gray-500 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all"
                 >
-                  <X size={14} /> 关闭
+                  <X size={14} /> {t('common.close')}
                 </button>
               </div>
 
@@ -82,7 +84,7 @@ const FamilySelector: React.FC = () => {
                 className="w-full flex items-center gap-3 p-3 mt-1 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl font-bold transition-all active:bg-gray-100 dark:active:bg-gray-600"
               >
                 <span className="text-2xl w-8 flex justify-center text-blue-500 dark:text-blue-400"><Plus size={20} strokeWidth={3} /></span>
-                <span className="flex-1 text-left">创建或加入新家庭</span>
+                <span className="flex-1 text-left">{t('parent.family_selector_create_join_family')}</span>
               </button>
 
             </div>

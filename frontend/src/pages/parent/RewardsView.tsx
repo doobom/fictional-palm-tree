@@ -74,7 +74,7 @@ export default function RewardsView() {
         <h2 className="text-xl font-extrabold text-gray-900 dark:text-white transition-colors">{t('parent.title_rewards', '心愿商店')}</h2>
         <button onClick={() => { setEditingReward(null); setIsAddDrawerOpen(true); }}
           className="flex items-center text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full font-bold active:scale-95 transition-colors shadow-sm">
-          <Plus size={18} className="mr-1" />{t('parent.btn_add_reward', '上架商品')}
+          <Plus size={18} className="mr-1" />{t('parent.reward_add_btn', '上架商品')}
         </button>
       </div>
 

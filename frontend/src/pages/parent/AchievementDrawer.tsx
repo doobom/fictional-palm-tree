@@ -79,7 +79,7 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="flex-1 px-4 h-12 bg-gray-50 dark:bg-gray-700 rounded-xl border-none font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  placeholder={t('parent.achievement_issue_manual_ph', '输入成就名称') }
+                  placeholder={t('parent.achievement_issue_manual_name_ph', '输入成就名称') }
                 />
               </div>
               <button 

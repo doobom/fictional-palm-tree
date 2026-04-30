@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import service, { ApiResponse } from '../api/request';
+import { useTranslation } from 'react-i18next';
 
 interface TrendChartProps {
   childId: string;
@@ -10,6 +11,7 @@ interface TrendChartProps {
 export default function ScoreTrendChart({ childId }: TrendChartProps) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (childId) {
@@ -32,7 +34,7 @@ export default function ScoreTrendChart({ childId }: TrendChartProps) {
   };
 
   if (loading) {
-    return <div className="h-[250px] flex items-center justify-center text-gray-400 font-bold animate-pulse">正在绘制成长图表...</div>;
+    return <div className="h-[250px] flex items-center justify-center text-gray-400 font-bold animate-pulse">{t('common.loading')}</div>;
   }
 
   // 自定义提示框样式适配暗黑模式
@@ -41,8 +43,8 @@ export default function ScoreTrendChart({ childId }: TrendChartProps) {
       return (
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-3 rounded-xl shadow-lg">
           <p className="font-bold text-gray-800 dark:text-gray-200 mb-2">{label}</p>
-          <p className="text-blue-500 font-black text-sm">赚取: +{payload[0].value}</p>
-          <p className="text-red-400 font-black text-sm">消费: -{payload[1].value}</p>
+          <p className="text-blue-500 font-black text-sm">{t('common.earned')}: +{payload[0].value}</p>
+          <p className="text-red-400 font-black text-sm">{t('common.spent')}: -{payload[1].value}</p>
         </div>
       );
     }
@@ -68,8 +70,8 @@ export default function ScoreTrendChart({ childId }: TrendChartProps) {
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(156, 163, 175, 0.1)' }} />
           <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-          <Bar dataKey="earned" name="赚取积分" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={30} />
-          <Bar dataKey="spent" name="消费积分" fill="#f87171" radius={[4, 4, 0, 0]} maxBarSize={30} />
+          <Bar dataKey="earned" name={t('common.earned')} fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={30} />
+          <Bar dataKey="spent" name={t('common.spent')} fill="#f87171" radius={[4, 4, 0, 0]} maxBarSize={30} />
         </BarChart>
       </ResponsiveContainer>
     </div>
