@@ -1,9 +1,5 @@
 export default {
   bot: {
-    unbound_greeting: "👋 <b>欢迎！</b>\n\n您似乎还未绑定家庭。请点击输入框旁边的 <b>Web App (Mini App)</b> 按钮进入系统完成注册或绑定。",
-    bind_prompt: "🔗 请点击底部的 Web App 按钮，在小程序端完成设备绑定。",
-    welcome_child: "🎉 <b>欢迎回来！</b>\n\n快点击 Web App 进去看看你的积分和可用奖品吧！",
-    welcome_parent: "👨‍👩‍👧 <b>欢迎回来！</b>\n\n您可以随时在此接收审批通知，或点击 Web App 进入家长控制台。",
     request_handled: "该请求已被处理",
     approval_notice: '🔔 <b>审批提醒</b>\n\n👦 孩子: {childName}\n🎁 申请兑换: {rewardName}\n💎 消耗: {cost} {pointStr}\n💰 余额: {balance} {pointStr}',
     approved_success: '🎉 <b>兑换成功通知</b>\n\n👦 孩子: {childName}\n🎁 成功兑换: {rewardName} (消耗：{cost} {pointStr})',

@@ -152,7 +152,7 @@ export default function HomeView() {
             className="flex items-center gap-1 text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
           >
             <ReceiptText size={16} />
-            <span>历史明细</span>
+            <span>{t('parent.history_title')}</span>
           </button>
           <button 
              onClick={() => setFamilyStatsOpen(true)}
@@ -240,7 +240,7 @@ export default function HomeView() {
         {myRole !== 'viewer' && childrenList.length > 1 && (
           <button onClick={openBatchAction} className="w-full mt-4 py-4 bg-gray-900 dark:bg-gray-800 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all">
             <ArrowRightLeft size={20} />
-            批量调整积分
+            {t('parent.batch_adjust_points')}
           </button>
         )}
       </section>
@@ -256,14 +256,14 @@ export default function HomeView() {
       <section className="pt-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2 transition-colors">
-            <Star className="text-yellow-400" /> 家庭规则
+            <Star className="text-yellow-400" /> {t('parent.rules_title')}
           </h2>
           {myRole !== 'viewer' && (
             <button 
               onClick={() => setRulesManagerOpen(true)} 
               className="text-blue-600 dark:text-blue-400 font-bold text-sm bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full transition-colors active:scale-95"
             >
-              管理规则
+              {t('parent.rules_manage')}
             </button>
           )}
         </div>
@@ -275,19 +275,19 @@ export default function HomeView() {
               onClick={() => setRuleFilter('all')}
               className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${ruleFilter === 'all' ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
             >
-              全部规则
+              {t('parent.rules_all')}
             </button>
             <button 
               onClick={() => setRuleFilter('reward')}
               className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${ruleFilter === 'reward' ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
             >
-              🏆 赚取积分
+              🏆 {t('parent.rules_reward')}
             </button>
             <button 
               onClick={() => setRuleFilter('penalty')}
               className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all ${ruleFilter === 'penalty' ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
             >
-              ⚠️ 扣除积分
+              ⚠️ {t('parent.rules_penalty')}
             </button>
           </div>
         )}
@@ -295,7 +295,7 @@ export default function HomeView() {
         {filteredRules.length === 0 && !loading ? (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 transition-colors">
             <p className="text-gray-400 dark:text-gray-500 font-bold text-sm transition-colors">
-              {rules.length === 0 ? '暂无设立的家庭规则' : '没有符合该分类的规则'}
+              {rules.length === 0 ? t('parent.rules_none') : t('parent.rules_none_filter')}
             </p>
           </div>
         ) : (
@@ -312,7 +312,7 @@ export default function HomeView() {
                   <div>
                     <p className="font-bold text-gray-800 dark:text-gray-100 transition-colors">{rule.name}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 font-medium transition-colors">
-                      {rule.child_id ? `专属: ${childrenList.find((c: Child) => c.id === rule.child_id)?.name}` : '全家通用'}
+                      {rule.child_id ? t('parent.rules_for',{name: childrenList.find((c: Child) => c.id === rule.child_id)?.name}) : t('parent.rules_for_all')}
                     </p>
                   </div>
                 </div>

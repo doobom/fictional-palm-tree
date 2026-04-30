@@ -45,7 +45,7 @@ export default function CategoryManagerDrawer({ isOpen, onClose }: CategoryManag
     if (!newName.trim()) return;
     try {
       await service.post('/categories/manage/upsert', { name: newName.trim(), emoji: newEmoji, sort_order: categories.length });
-      appToast.success(t('parent.settings_category_add_success', '添加成功'));
+      appToast.success(t('parent.category_add_success', '添加成功'));
       setNewName(''); setNewEmoji('🏷️'); fetchCategories();
     } catch (err) {}
   };
@@ -54,16 +54,16 @@ export default function CategoryManagerDrawer({ isOpen, onClose }: CategoryManag
     if (!editName.trim()) return setEditingId(null);
     try {
       await service.post('/categories/manage/upsert', { id, name: editName.trim(), emoji: editEmoji, sort_order: sortOrder });
-      appToast.success(t('parent.settings_category_save_success', '修改成功'));
+      appToast.success(t('parent.category_save_success', '修改成功'));
       setEditingId(null); fetchCategories();
     } catch (err) {}
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(t('parent.settings_delete_category_confirm', '确定要删除该分类吗？'))) return;
+    if (!window.confirm(t('parent.category_delete_confirm', '确定要删除该分类吗？'))) return;
     try {
       await service.delete(`/categories/manage/${id}`);
-      appToast.success(t('parent.settings_category_delete_success', '删除成功'));
+      appToast.success(t('parent.category_delete_success', '删除成功'));
       fetchCategories();
     } catch (err) {}
   };
@@ -83,7 +83,7 @@ export default function CategoryManagerDrawer({ isOpen, onClose }: CategoryManag
           <div className="flex items-center space-x-2 absolute left-6">
             <Tags className="text-blue-500 dark:text-blue-400" size={24} />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 transition-colors">{t('parent.settings_category_manage_title', '分类管理')}</h3>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 transition-colors">{t('parent.category_manage_title', '分类管理')}</h3>
           <button onClick={onClose} className="absolute right-5 w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 font-bold active:scale-95 transition-colors">✕</button>
         </div>
 
@@ -96,7 +96,7 @@ export default function CategoryManagerDrawer({ isOpen, onClose }: CategoryManag
               className="w-14 h-12 px-1 text-center text-xl rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-colors"
             />
             <input 
-              type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('parent.settings_category_add_ph', '输入新分类名称...')}
+              type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('parent.category_add_ph', '输入新分类名称...')}
               className="flex-1 h-12 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm font-medium transition-colors"
             />
             {/* 🌟 添加按钮状态颜色适配 */}
@@ -110,7 +110,7 @@ export default function CategoryManagerDrawer({ isOpen, onClose }: CategoryManag
             <div className="text-center py-8 text-gray-400 dark:text-gray-500 font-medium transition-colors">{t('common.loading', '加载中...')}</div>
           ) : categories.length === 0 ? (
             <div className="text-center py-10 text-gray-400 dark:text-gray-500 border-2 border-dashed rounded-2xl border-gray-300 dark:border-gray-700 transition-colors">
-              {t('parent.settings_category_none', '暂无分类，请在上方添加')}
+              {t('parent.category_none', '暂无分类，请在上方添加')}
             </div>
           ) : (
             <div className="space-y-3">

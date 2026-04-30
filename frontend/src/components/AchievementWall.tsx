@@ -2,10 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Lock } from 'lucide-react';
 import service, { ApiResponse } from '../api/request';
+import { useTranslation } from 'react-i18next';
 
 export default function AchievementWall({ childId }: { childId: string }) {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (childId) fetchAchievements();
@@ -19,7 +21,7 @@ export default function AchievementWall({ childId }: { childId: string }) {
     } catch (err) {} finally { setLoading(false); }
   };
 
-  if (loading) return <div className="p-10 text-center animate-pulse">勋章装填中...</div>;
+  if (loading) return <div className="p-10 text-center animate-pulse">{t('common.loading')}</div>;
 
   return (
     <div className="grid grid-cols-2 gap-3 p-1">

@@ -1,9 +1,5 @@
 export default {
   bot: {
-    unbound_greeting: "👋 <b>Welcome!</b>\n\nIt seems you haven't bound a family yet. Please click the <b>Web App</b> button near the input field to register or bind your account.",
-    bind_prompt: "🔗 Please complete the binding process inside the Web App.",
-    welcome_child: "🎉 <b>Welcome back!</b>\n\nOpen the Web App to check your points and rewards!",
-    welcome_parent: "👨‍👩‍👧 <b>Welcome back!</b>\n\nYou can approve requests here or open the Web App to manage your family.",
     request_handled: "This request has already been handled.",
     approval_notice: '🔔 <b>Approval Request</b>\n\n👦 Child: {childName}\n🎁 Reward: {rewardName}\n💎 Cost: {cost} {pointStr}\n💰 Balance: {balance} {pointStr}',
     approved_success: '🎉 <b>Redemption Successful</b>\n\n👦 Child: {childName}\n🎁 Reward: {rewardName} (Cost: {cost} {pointStr})',

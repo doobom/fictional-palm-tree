@@ -2,11 +2,14 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trophy, Send, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
 import AchievementWall from '../../components/AchievementWall';
 import service from '../../api/request';
 import { appToast } from '../../utils/toast';
 
 export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }: any) {
+  const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', emoji: '🎉' });
   const [loading, setLoading] = useState(false);
@@ -14,19 +17,19 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
   if (!isOpen || !child) return null;
 
   const handleIssue = async () => {
-    if (!form.name.trim()) return appToast.error('请输入勋章名称');
+    if (!form.name.trim()) return appToast.error(t('parent.achievement_name_notifation', '请输入勋章名称'));
     setLoading(true);
     try {
       await service.post('/achievements/manual-issue', {
         childId: child.id,
         ...form
       });
-      appToast.success('勋章颁发成功！');
+      appToast.success(t('parent.achievement_issue_sucessful','勋章颁发成功！'));
       setShowForm(false);
       setForm({ name: '', emoji: '🎉' });
       if (onSuccess) onSuccess(); // 刷新成就墙和首页状态
     } catch (e) {
-      appToast.error('颁发失败');
+      appToast.error(t('parent.achievement_issue_fail','颁发失败'));
     } finally {
       setLoading(false);
     }
@@ -43,7 +46,7 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
         <div className="px-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3 transition-colors">
           <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <Trophy size={22} className="text-yellow-500" />
-            <h3 className="text-lg font-bold">{child.name} 的成就墙</h3>
+            <h3 className="text-lg font-bold"> { t('parent.achievement_wall', { name: child.name }) }</h3>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-colors"><X size={18} /></button>
         </div>
@@ -55,13 +58,13 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
               onClick={() => setShowForm(true)}
               className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400 font-bold hover:bg-white dark:hover:bg-gray-800 transition-all"
             >
-              <Plus size={20} /> 颁发特别表现奖
+              <Plus size={20} /> { t('parent.achievement_issue') }
             </button>
           ) : (
             <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-blue-100 dark:border-blue-900/30 space-y-4 shadow-sm animate-in slide-in-from-top-4 duration-300">
               <div className="flex items-center justify-between">
-                <h4 className="font-black text-blue-600 dark:text-blue-400 text-sm">自定义新勋章</h4>
-                <button onClick={() => setShowForm(false)} className="text-gray-400 text-xs font-bold underline">取消</button>
+                <h4 className="font-black text-blue-600 dark:text-blue-400 text-sm">{ t('parent.achievement_issue_manual') }</h4>
+                <button onClick={() => setShowForm(false)} className="text-gray-400 text-xs font-bold underline">{ t('common.cancel') }</button>
               </div>
               <div className="flex gap-3">
                 <input 
@@ -76,7 +79,7 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="flex-1 px-4 h-12 bg-gray-50 dark:bg-gray-700 rounded-xl border-none font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  placeholder="例如：进步神速奖"
+                  placeholder={t('parent.achievement_issue_manual_ph', '输入成就名称') }
                 />
               </div>
               <button 
@@ -84,7 +87,7 @@ export default function AchievementDrawer({ isOpen, onClose, child, onSuccess }:
                 disabled={loading}
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-blue-200 dark:shadow-none"
               >
-                {loading ? '颁发中...' : <><Send size={18} /> 确认颁发</>}
+                {loading ? t('parent.achievement_issue_loading') : <><Send size={18} /> {t('parent.achievement_issue_confirm')}</>}
               </button>
             </div>
           )}
