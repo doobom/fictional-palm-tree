@@ -153,7 +153,7 @@ export default function ChildRewards() {
                 {!isAvailable && (
                   <div className="absolute inset-0 bg-white/50 dark:bg-black/40 flex items-center justify-center backdrop-blur-[1px] transition-colors">
                     <span className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                      {!hasStock ? t('api.ERR_OUT_OF_STOCK', '库存不足') : t('child.locked', '积分不够')}
+                      {!hasStock ? t('api.ERR_OUT_OF_STOCK', '库存不足') : t('common.locked', '积分不够')}
                     </span>
                   </div>
                 )}
@@ -198,7 +198,7 @@ export default function ChildRewards() {
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm font-bold transition-colors">
-                  <span className="text-gray-500 dark:text-gray-400">{t('child.current_balance', '当前余额：')}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('common.current_balance', '当前余额：')}</span>
                   <span className="text-blue-500 dark:text-blue-400">{myCoins} 🪙</span>
                 </div>
               </div>

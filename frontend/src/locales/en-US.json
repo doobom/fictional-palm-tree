@@ -10,6 +10,7 @@
     "copy": "Copy",
     "close": "Close",
     "copied": "Copied!",
+    "current_balance": "Current Balance: ",
     "earned": "Earned", 
     "emoji": "Emoji",
     "name": "Name",
@@ -20,7 +21,8 @@
     "syncing": "Syncing...",
     "submitting": "Submitting...",
     "loading": "Loading...",
-    "load_failed": "Failed to load data, please try again later"
+    "load_failed": "Failed to load data, please try again later",
+    "locked": "Insufficient Points"
   },
   "auth": {
     "title_login": "Welcome to Family Points",
@@ -38,18 +40,21 @@
   "parent": {
     "title_home": "Points Dashboard",
     "title_rewards": "Available Rewards",
-
-    "empty_children": "No children added yet. Go to settings to add!",
-    "empty_rewards": "Reward library is empty, go add some!",
-
+    "title_approvals": "Approvals",
     "tab_home": "Home",
     "tab_approvals": "Approvals",
     "tab_rewards": "Rewards",
     "tab_settings": "Settings",
 
+    "history_title": "History",
+    "batch_adjust_points": "Batch Adjust Points",
+
     "btn_add": "Add",
+    "empty_children": "No children added yet. Go to settings to add!",
 
     "stock_infinite": "Infinite",
+    "stock_left": "Remaining: {{stock}}",
+
     "reward_add_success": "Reward listed successfully!",
     "reward_edit": "Edit Reward",
     "reward_add": "Add Reward",
@@ -63,20 +68,22 @@
     "reward_require_approval_desc": "Redemption requires parent approval",
     "reward_save_btn": "Save Reward",
     "reward_add_btn": "Add Reward",
+    "reward_select_child_to_redeem": "Please select a child to redeem",
+    "reward_insufficient_points": "Insufficient points to redeem (Balance: {{balance}}, Required: {{cost}})",
+    "reward_admin_redeem_success": "Successfully redeemed {{rewardName}} for {{childName}}!",
+    "reward_admin_redeem_title": "Admin Redeem",
+    "reward_admin_redeem_assign_to": "Assign this reward to:",
+    "reward_admin_redeem_confirm": "Confirm Redeem",
+    "reward_search_ph": "Search reward name...",
+    "reward_delete_confirm": "Are you sure you want to delete this reward?",
+    "reward_delete_success": "Reward deleted",
+    "reward_empty": "Reward library is empty, go add some!",
 
     "family_selector_switch_success": "Switched to {{familyName}}",
     "family_selector_unknown_family": "Unknown Family",
     "family_selector_choose_family": "Choose Family",
     "family_selector_switch_family": "Switch Family",
     "family_selector_create_join_family": "Create/Join Family",
-    
-    "delete_confirm": "Are you sure you want to delete this reward?",
-    "admin_redeem_title": "Admin Redeem",
-    "search_ph": "Search reward name...",
-    "delete_success": "Reward deleted",
-
-    "history_title": "History",
-    "batch_adjust_points": "Batch Adjust Points",
 
     "category_add_success": "Category added successfully!",
     "category_save_success": "Category updated successfully!",
@@ -105,16 +112,30 @@
     "achievement_issue_manual": "Custom Achievement",
     "achievement_issue_manual_name_ph": "Enter achievement name",
     "achievement_issue_loading": "Issuing...",
-    "achievement_issue_confirm": "Confirm Issue"
+    "achievement_issue_confirm": "Confirm Issue",
+
+    "approval_approve": "Approve",
+    "approval_approved": "Approval approved!",
+    "approval_reject": "Reject",
+    "approval_rejected": "Approval rejected!",
+    "approval_reject_reason": "Please provide a reason for rejection",
+    "approval_reject_reason_placeholder": "Reason for rejection",
+    "approval_loading": "Loading approvals...",
+    "approval_no_pending": "All approvals processed!",
+    "approval_reward_request": "Requested reward redemption",
+    "approval_task_request": "Requested task points",
+    "approval_reward_request_title": "Reward Redemption Approval",
+    "approval_task_request_title": "Task Proof Approval",
+    "approval_review_points": "{{type}} Points to Approve",
+    "approval_review_reward": "Reward",
+    "approval_review_deduction": "Deduction"
   },
   "child": {
     "store_title": "Wish Store",
     "store_desc": "Earn coins to get your favorite rewards!",
     "stock_left": "{{stock}} left",
     "stock_infinite": "Unlimited",
-    "empty_store": "The store is empty right now.",
-    "locked": "Insufficient Points",
-    "current_balance": "Current Balance:"
+    "empty_store": "The store is empty right now."
   },
   "api": {
     "ERR_UNAUTHORIZED": "Session expired, please login again",

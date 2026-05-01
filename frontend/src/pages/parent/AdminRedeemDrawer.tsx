@@ -23,8 +23,10 @@ export interface AdminRedeemDrawerProps {
 export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }: AdminRedeemDrawerProps) {
   const { t } = useTranslation();
   // 🌟 核心修改：不再需要 updateScoreLocal，完全交由 SSE 实时更新
-  const { currentFamilyId, childrenList, setChildrenList } = useUserStore();
-  
+  const { currentFamilyId, families, childrenList, setChildrenList } = useUserStore();
+  const currentFamily = families.find((f: any) => f.id === currentFamilyId);
+  const pointEmoji = currentFamily?.point_emoji || '🪙';
+
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -54,13 +56,13 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
 
   const handleSubmit = async () => {
     if (!selectedChildId || !reward) {
-      appToast.warn('请先选择要兑换的成员');
+      appToast.warn(t('parent.reward_select_child_to_redeem', 'Please select a child to redeem'));
       return;
     }
 
     const targetChild = childrenList.find((c: Child) => c.id === selectedChildId);
     if (targetChild && (targetChild.balance || 0) < reward.cost) { 
-      appToast.error(t('common.insufficient_points') || '该成员积分不足，无法兑换');
+      appToast.error(t('parent.reward_insufficient_points', { balance: targetChild.balance, cost: reward.cost }) );
       return;
     }
 
@@ -74,7 +76,7 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
 
       // request.ts 会拦截报错，能走到这说明一定成功了
       if (res && res.success) {
-        appToast.success(`成功为 ${targetChild?.name} 兑换了 ${reward.name}！`);
+        appToast.success(t('parent.reward_admin_redeem_success', { childName: targetChild?.name, rewardName: reward.name }));
         // updateScoreLocal(selectedChildId, -reward.cost); <- 🌟 删掉了这行，防止假双倍扣分
         onSuccess?.();
         onClose();
@@ -106,7 +108,7 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
         {/* 标题栏 */}
         <div className="px-5 pb-4 border-b border-gray-100 dark:border-gray-800 relative transition-colors">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 text-center transition-colors">
-            {t('parent.admin_redeem_title') || '选择兑换成员'}
+            {t('parent.reward_admin_redeem_title', '选择兑换成员')}
           </h3>
           <button 
             onClick={onClose}
@@ -123,16 +125,16 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
             <span className="text-4xl">{reward.emoji || '🎁'}</span>
             <div>
               <p className="font-bold text-gray-800 dark:text-orange-100 transition-colors">{reward.name}</p>
-              <p className="text-orange-500 dark:text-orange-400 font-bold text-sm transition-colors">-{reward.cost} 积分</p>
+              <p className="text-orange-500 dark:text-orange-400 font-bold text-sm transition-colors">-{reward.cost} {pointEmoji}</p>
             </div>
           </div>
 
           <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider transition-colors">
-            将此奖励发给：
+            {t('parent.reward_admin_redeem_assign_to', '将此奖励发给：')}
           </p>
 
           {fetching ? (
-            <div className="text-center py-10 text-gray-400 animate-pulse">加载成员中...</div>
+            <div className="text-center py-10 text-gray-400 animate-pulse">{t('common.loading', '加载成员中...')}</div>
           ) : (
             <div className="space-y-3">
               {childrenList.map((child: Child) => {
@@ -158,8 +160,8 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
                     <div className="flex-1">
                       <p className="font-bold text-gray-800 dark:text-gray-100 text-lg transition-colors">{child.name}</p>
                       <p className={`text-sm transition-colors ${canAfford ? 'text-gray-500 dark:text-gray-400' : 'text-red-400 dark:text-red-500'}`}>
-                        当前余额: {child.balance || 0}
-                        {!canAfford && ' (不足)'}
+                        {t('common.current_balance', '当前余额')}: {child.balance || 0}
+                        {!canAfford && t('common.locked', '积分不够')}
                       </p>
                     </div>
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -181,7 +183,7 @@ export default function AdminRedeemDrawer({ isOpen, onClose, onSuccess, reward }
             disabled={!selectedChildId || loading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 text-lg flex items-center justify-center gap-2"
           >
-            {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '确认兑换'}
+            {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t('parent.reward_admin_redeem_confirm', '确认兑换')}
           </button>
         </div>
       </div>

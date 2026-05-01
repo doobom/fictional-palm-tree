@@ -4,6 +4,7 @@ import { Check, X, Image as ImageIcon, MessageSquare, ShieldCheck, ChevronRight,
 import service, { ApiResponse } from '../../api/request';
 import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 export default function ApprovalsView() {
   const { childrenList } = useUserStore();
@@ -13,6 +14,7 @@ export default function ApprovalsView() {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [finalPoints, setFinalPoints] = useState<number>(0);
   const [rejectReason, setRejectReason] = useState('');
+  const { t } = useTranslation();
 
   useEffect(() => { fetchPendingApprovals(); }, []);
 
@@ -25,10 +27,10 @@ export default function ApprovalsView() {
   };
 
   const handleReview = async (action: 'approve' | 'reject') => {
-    if (action === 'reject' && !rejectReason.trim()) return appToast.error('请填写驳回理由');
+    if (action === 'reject' && !rejectReason.trim()) return appToast.error(t('parent.approval_reject_reason', '请输入驳回理由'));
     try {
       await service.put(`/approvals/${selectedTask.id}/review`, { action, finalPoints, rejectReason });
-      appToast.success(action === 'approve' ? '审批已通过！' : '已驳回申请');
+      appToast.success(action === 'approve' ? t('parent.approval_approved', '审批已通过！') : t('parent.approval_rejected', '已驳回申请'));
       setSelectedTask(null);
       fetchPendingApprovals();
     } catch (e) { appToast.error('操作失败'); }
@@ -44,15 +46,15 @@ export default function ApprovalsView() {
     <div className="p-4 pb-24 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-2 mb-6">
         <ShieldCheck className="text-blue-500" size={24} />
-        <h2 className="text-xl font-black text-gray-900 dark:text-white">统一审核中心</h2>
+        <h2 className="text-xl font-black text-gray-900 dark:text-white">{t('parent.title_approvals', '统一审核中心')}</h2>
       </div>
 
       {loading ? (
-        <div className="text-center text-gray-400 font-bold py-10 animate-pulse">正在检索待办事项...</div>
+        <div className="text-center text-gray-400 font-bold py-10 animate-pulse">{t('parent.approval_loading', '正在检索待办事项...')}</div>
       ) : approvals.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-[32px] p-8 text-center border border-gray-100 dark:border-gray-700">
           <Check size={32} className="text-green-500 mx-auto mb-4" />
-          <h3 className="font-black text-gray-900 dark:text-white mb-2">全部处理完毕</h3>
+          <h3 className="font-black text-gray-900 dark:text-white mb-2">{t('parent.approval_no_pending', '全部处理完毕')}</h3>
         </div>
       ) : (
         <div className="space-y-4">
@@ -83,7 +85,7 @@ export default function ApprovalsView() {
                   </div>
                   <p className="text-xs text-gray-500 truncate flex items-center gap-1">
                     {task.evidence_image && <ImageIcon size={12} />}
-                    {task.evidence_text || (isReward ? '申请兑换奖励' : '申请任务加分')}
+                    {task.evidence_text || (isReward ? t('parent.approval_reward_request', '申请兑换奖励') : t('parent.approval_task_request', '申请任务加分'))}
                   </p>
                 </div>
                 <ChevronRight className="text-gray-300" size={20} />
@@ -102,7 +104,7 @@ export default function ApprovalsView() {
             <div className="flex items-center gap-2 mb-4">
                {selectedTask.type === 'reward' ? <Gift className="text-orange-500"/> : <Sparkles className="text-blue-500"/>}
                <h3 className="text-xl font-black text-gray-900 dark:text-white">
-                 {selectedTask.type === 'reward' ? '商品兑换审核' : '任务凭证审核'}
+                 {selectedTask.type === 'reward' ? t('parent.approval_reward_request_title', '商品兑换审核') : t('parent.approval_task_request_title', '任务凭证审核')}
                </h3>
             </div>
             
@@ -118,7 +120,7 @@ export default function ApprovalsView() {
 
             <div className="mb-6">
               <label className="block text-sm font-bold text-gray-500 mb-2">
-                核定{selectedTask.type === 'reward' ? '扣除' : '奖励'}分数
+                {t('parent.approval_review_points', {type: selectedTask.type === 'reward' ? t('parent.approval_review_deduction', '核定扣除分数') : t('parent.approval_review_reward', '核定奖励分数')})}
               </label>
               <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 p-2 rounded-2xl">
                 <button onClick={() => setFinalPoints(Math.max(0, finalPoints - 1))} className="w-10 h-10 bg-white rounded-xl shadow-sm font-bold">-</button>
@@ -128,11 +130,11 @@ export default function ApprovalsView() {
             </div>
 
             <div className="flex gap-3">
-              <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="驳回理由" className="flex-1 p-3 bg-gray-100 rounded-2xl outline-none text-sm" />
-              <button onClick={() => handleReview('reject')} className="px-4 bg-gray-200 hover:bg-red-100 text-gray-600 hover:text-red-500 font-bold rounded-2xl">驳回</button>
+              <input type="text" value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder={t('parent.approval_reject_reason_placeholder', '驳回理由')} className="flex-1 p-3 bg-gray-100 rounded-2xl outline-none text-sm" />
+              <button onClick={() => handleReview('reject')} className="px-4 bg-gray-200 hover:bg-red-100 text-gray-600 hover:text-red-500 font-bold rounded-2xl">{t('parent.approval_reject', '驳回')}</button>
             </div>
             <button onClick={() => handleReview('approve')} className="w-full mt-3 py-3.5 bg-blue-600 text-white font-black rounded-2xl shadow-lg flex items-center justify-center gap-2">
-              <Check size={18} /> 同意并{selectedTask.type === 'reward' ? '扣分' : '发放'}
+              <Check size={18} /> {t('parent.approval_approve', '同意并')} {selectedTask.type === 'reward' ? t('parent.approval_review_deduction', '扣分') : t('parent.approval_review_reward', '发放')}
             </button>
           </div>
         </div>

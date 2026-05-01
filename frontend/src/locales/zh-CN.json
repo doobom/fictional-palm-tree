@@ -10,6 +10,7 @@
     "copy": "复制",
     "close": "关闭",
     "copied": "已复制！",
+    "current_balance": "当前余额：",
     "earned": "赚取",
     "emoji": "图标",
     "name": "名称",
@@ -20,7 +21,8 @@
     "syncing": "同步中...",
     "submitting": "提交中...",
     "loading": "加载中...",
-    "load_failed": "数据加载失败，请稍后再试"
+    "load_failed": "数据加载失败，请稍后再试",
+    "locked": "积分不足"
   },
   "auth": {
     "title_login": "登录家庭积分系统",
@@ -38,18 +40,20 @@
   "parent": {
     "title_home": "积分概览",
     "title_rewards": "已上架奖品",
-
-    "empty_children": "还没有添加孩子，快去设置里添加吧！",
-    "empty_rewards": "奖品库空空如也，快去添加吧！",
-
+    "title_approvals": "统一审核中心",
     "tab_home": "主页",
     "tab_approvals": "待审批",
     "tab_rewards": "奖品库",
     "tab_settings": "设置",
 
+    "history_title": "历史明细",
+    "batch_adjust_points": "批量调整积分",
+
     "btn_add": "确认添加",
+    "empty_children": "还没有添加孩子，快去设置里添加吧！",
     
     "stock_infinite": "无限量",
+    "stock_left": "剩余: {{stock}}",
 
     "reward_add_success": "奖品上架成功！",
     "reward_edit": "编辑奖品",
@@ -64,20 +68,22 @@
     "reward_require_approval_desc": "兑换后需家长同意才生效",
     "reward_save_btn": "保存奖品",
     "reward_add_btn": "上架新奖品",
+    "reward_select_child_to_redeem": "请先选择要兑换的成员",
+    "reward_insufficient_points": "积分不足，无法兑换（余额: {{balance}}，需要: {{cost}}）",
+    "reward_admin_redeem_success": "成功为 {{childName}} 兑换了 {{rewardName}}！",
+    "reward_admin_redeem_title": "管理员代兑换",
+    "reward_admin_redeem_assign_to": "将此奖励发给：",
+    "reward_admin_redeem_confirm": "确认兑换",
+    "reward_search_ph": "搜索奖品名称...",
+    "reward_delete_confirm": "确定要删除该奖品吗？",
+    "reward_delete_success": "奖品已删除",
+    "reward_empty": "奖品库空空如也，快去添加吧！",
 
     "family_selector_switch_success": "已切换至 {{familyName}}",
     "family_selector_unknown_family": "未知家庭",
     "family_selector_choose_family": "选择家庭",
     "family_selector_switch_family": "切换家庭",
     "family_selector_create_join_family": "创建/加入家庭",
-    
-    "delete_confirm": "确定要删除该奖品吗？",
-    "admin_redeem_title": "管理员代兑换",
-    "search_ph": "搜索奖品名称...",
-    "delete_success": "奖品已删除",
-
-    "history_title": "历史明细",
-    "batch_adjust_points": "批量调整积分",
 
     "category_add_success": "分类添加成功！",
     "category_save_success": "分类修改成功！",
@@ -106,16 +112,30 @@
     "achievement_issue_manual": "自定义新勋章",
     "achievement_issue_manual_name_ph": "输入成就名称",
     "achievement_issue_loading": "颁发中...",
-    "achievement_issue_confirm": "确认颁发"
+    "achievement_issue_confirm": "确认颁发",
+
+    "approval_approve": "同意",
+    "approval_approved": "审批已通过！",
+    "approval_reject": "驳回",
+    "approval_rejected": "审批已驳回！",
+    "approval_reject_reason": "请输入驳回理由",
+    "approval_reject_reason_placeholder": "驳回理由",
+    "approval_loading": "正在检索待办事项...",
+    "approval_no_pending": "全部处理完毕！",
+    "approval_reward_request": "申请兑换奖励",
+    "approval_task_request": "申请任务加分",
+    "approval_reward_request_title": "商品兑换审核",
+    "approval_task_request_title": "任务凭证审核",
+    "approval_review_points": "{{type}}分数审核",
+    "approval_review_reward": "奖励",
+    "approval_review_deduction": "扣除"
   },
   "child": {
     "store_title": "心愿商店",
     "store_desc": "努力赚取金币，兑换你喜欢的礼物吧！",
     "stock_left": "还剩 {{stock}} 个",
     "stock_infinite": "不限量",
-    "empty_store": "商店里还没有上架奖品呢",
-    "locked": "积分不够",
-    "current_balance": "当前余额："
+    "empty_store": "商店里还没有上架奖品呢"
   },
   "api": {
     "ERR_UNAUTHORIZED": "登录已失效，请重新登录",

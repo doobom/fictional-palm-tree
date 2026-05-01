@@ -50,10 +50,10 @@ export default function RewardsView() {
   }, [keyword, categoryId]);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(t('parent.delete_confirm', '确定要删除吗？'))) return;
+    if (!window.confirm(t('parent.reward_delete_confirm', '确定要删除吗？'))) return;
     try {
       await api.delete(`/rewards/manage/${id}`);
-      appToast.success(t('parent.delete_success', '删除成功'));
+      appToast.success(t('parent.reward_delete_success', '删除成功'));
       fetchInitData();
     } catch (err) {}
   };
@@ -80,12 +80,12 @@ export default function RewardsView() {
 
       {/* 🌟 优化：搜索与控制栏防挤压布局 */}
       <div className="flex items-center gap-2">
-        <input type="text" placeholder={t('parent.search_ph', '搜索商品...')} value={keyword} onChange={e => setKeyword(e.target.value)}
+        <input type="text" placeholder={t('parent.reward_search_ph', '搜索商品...')} value={keyword} onChange={e => setKeyword(e.target.value)}
           className="flex-1 min-w-0 h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors placeholder-gray-400" />
         
         <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
           className="w-24 shrink-0 h-11 px-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none transition-colors appearance-none font-medium text-center">
-          <option value="">全部分类</option>
+          <option value="">{t('parent.all_categories', '全部分类')}</option>
           {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
         </select>
 
@@ -101,10 +101,10 @@ export default function RewardsView() {
       </div>
 
       {/* 列表渲染区 */}
-      {loading ? <div className="text-center py-10 text-gray-400 dark:text-gray-500 transition-colors animate-pulse">加载中...</div> : rewards.length === 0 ? (
+      {loading ? <div className="text-center py-10 text-gray-400 dark:text-gray-500 transition-colors animate-pulse">{t('common.loading', '加载中...')}</div> : rewards.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-500 transition-colors">
           <PackageOpen size={48} className="text-gray-300 dark:text-gray-600 mb-4 transition-colors" />
-          <p className="font-medium">{t('parent.empty_rewards', '商店空空如也，快去上架奖励吧！')}</p>
+          <p className="font-medium">{t('parent.reward_empty', '奖品库空空如也，快去添加吧！')}</p>
         </div>
       ) : (
         <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3" : "flex flex-col space-y-3"}>
@@ -145,7 +145,7 @@ export default function RewardsView() {
                       {reward.cost} <span className="text-xs font-normal">{pointEmoji}</span>
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-nowrap">
-                      {reward.stock === -1 ? '不限量' : `余 ${reward.stock}`}
+                      {reward.stock === -1 ? t('parent.stock_infinite', '不限量') : t('parent.stock_left', '剩余: {{stock}}', { stock: reward.stock })}
                     </span>
                   </div>
                 </div>
