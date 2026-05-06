@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useUserStore, Child } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 export interface BatchActionDrawerProps {
   isOpen: boolean;
@@ -14,12 +15,14 @@ export interface BatchActionDrawerProps {
 export default function BatchActionDrawer({ isOpen, onClose, prefillRule }: BatchActionDrawerProps) {
   const { updateScoreLocal, childrenList, families, currentFamilyId } = useUserStore();
   const currentFamily = families.find(f => f.id === currentFamilyId);
+  const pointEmoji = currentFamily?.point_emoji || '🪙';
 
   const [selectedChildIds, setSelectedChildIds] = useState<Set<string>>(new Set());
   const [actionType, setActionType] = useState<'add' | 'deduct'>('add');
   const [points, setPoints] = useState<number | ''>('');
   const [remark, setRemark] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
@@ -50,21 +53,21 @@ export default function BatchActionDrawer({ isOpen, onClose, prefillRule }: Batc
 
   const handleSubmit = async () => {
     const numPoints = Number(points);
-    if (selectedChildIds.size === 0) return appToast.warn('请至少选择一个孩子');
-    if (!numPoints || numPoints <= 0) return appToast.warn('请输入有效的分数');
+    if (selectedChildIds.size === 0) return appToast.warn(t('parent.score_select_child_none', '请至少选择一个孩子'));
+    if (!numPoints || numPoints <= 0) return appToast.warn(t('parent.score_invalid_points'));
 
     setLoading(true);
     try {
       const finalPoints = actionType === 'add' ? numPoints : -Math.abs(numPoints);
       const promises = Array.from(selectedChildIds).map(childId => 
         service.post<any, ApiResponse>('/scores/adjust', {
-          childId, points: finalPoints, remark: remark || (actionType === 'add' ? '批量奖励' : '批量扣除')
+          childId, points: finalPoints, remark: remark || t('parent.score_batch_adjust_points_with_type', { type: (actionType === 'add' ? t('parent.score_adjust_points_type_add') : t('parent.score_adjust_points_type_deduction') ) })
         })
       );
       
       await Promise.all(promises);
       
-      appToast.success(`已为 ${selectedChildIds.size} 个孩子完成${actionType === 'add' ? '发放' : '扣除'}`);
+      appToast.success(t('parent.score_batch_adjust_points_success', { count: selectedChildIds.size, points: finalPoints, type: actionType === 'add' ? t('parent.score_adjust_points_type_add') : t('parent.score_adjust_points_type_deduction'), emoji: pointEmoji }));
       Array.from(selectedChildIds).forEach(childId => updateScoreLocal(childId, finalPoints));
       onClose();
     } finally { setLoading(false); }
@@ -79,12 +82,12 @@ export default function BatchActionDrawer({ isOpen, onClose, prefillRule }: Batc
 
         <div className="px-5 pb-2 relative transition-colors">
           <button onClick={onClose} className="absolute right-5 top-0 w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 font-bold">✕</button>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">批量调整积分</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{ t('parent.score_batch_adjust_points') }</h3>
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">选择应用对象</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">{ t('parent.score_batch_select_child') }</label>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {childrenList.map((child: Child) => {
                 const isSelected = selectedChildIds.has(child.id);
@@ -99,22 +102,22 @@ export default function BatchActionDrawer({ isOpen, onClose, prefillRule }: Batc
           </div>
 
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl transition-colors">
-            <button onClick={() => { setActionType('add'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'add' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>奖励</button>
-            <button onClick={() => { setActionType('deduct'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'deduct' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>扣除</button>
+            <button onClick={() => { setActionType('add'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'add' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.score_adjust_points_type_add') }</button>
+            <button onClick={() => { setActionType('deduct'); setPoints(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'deduct' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.score_adjust_points_type_deduction') }</button>
           </div>
 
           <div className="space-y-3">
             <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 p-1 pl-4 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition-colors">
               <span className="text-xl">{currentFamily?.point_emoji || '🪙'}</span>
-              <input type="number" min="1" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500" placeholder="输入统一额度" />
+              <input type="number" min="1" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500" placeholder={ t('parent.score_batch_adjust_points_placeholder') } />
             </div>
-            <input type="text" value={remark} onChange={(e) => setRemark(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder="批量原因 (选填)" />
+            <input type="text" value={remark} onChange={(e) => setRemark(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder={ t('parent.score_batch_adjust_points_remark_placeholder') } />
           </div>
         </div>
 
         <div className="p-5 pt-2 bg-white dark:bg-gray-900 transition-colors" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 20px)' }}>
           <button onClick={handleSubmit} disabled={loading || !points || Number(points) <= 0 || selectedChildIds.size === 0} className={`w-full py-3.5 rounded-xl font-semibold text-white text-lg transition-colors ${actionType === 'add' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'} disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600`}>
-            {loading ? '处理中...' : `确认批量${actionType === 'add' ? '发放' : '扣除'}`}
+            {loading ? t('parent.score_adjust_points_loading') : t('parent.score_batch_adjust_points_btn', { type: actionType === 'add' ? t('parent.score_adjust_points_type_add') : t('parent.score_adjust_points_type_deduction') }) }
           </button>
         </div>
       </div>

@@ -128,7 +128,20 @@
     "approval_task_request_title": "Task Proof Approval",
     "approval_review_points": "{{type}} Points to Approve",
     "approval_review_reward": "Reward",
-    "approval_review_deduction": "Deduction"
+    "approval_review_deduction": "Deduction",
+
+    "score_adjust_points_type_add": "Addition",
+    "score_adjust_points_type_deduction": "Deduction",
+    "score_adjust_points_loading": "Processing...",
+    "score_select_child_none": "Please select at least one child",
+    "score_invalid_points": "Please enter a valid number of points",
+    "score_batch_adjust_points_with_type": "Batch Adjust Points ({{type}})",
+    "score_batch_adjust_points_success": "Successfully completed {{type}} of {{points}} {{emoji}} for {{count}} children.",
+    "score_batch_adjust_points": "Batch Adjust Points",
+    "score_batch_select_child": "Select Children",
+    "score_batch_adjust_points_remark_placeholder": "Enter a reason for the adjustment (optional)",
+    "score_batch_adjust_points_placeholder": "Enter points to adjust",
+    "score_batch_adjust_points_btn": "Confirm Batch {{type}}"
   },
   "child": {
     "store_title": "Wish Store",

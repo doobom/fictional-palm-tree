@@ -128,7 +128,20 @@
     "approval_task_request_title": "任务凭证审核",
     "approval_review_points": "{{type}}分数审核",
     "approval_review_reward": "奖励",
-    "approval_review_deduction": "扣除"
+    "approval_review_deduction": "扣除",
+
+    "score_adjust_points_type_add": "奖励",
+    "score_adjust_points_type_deduction": "扣除",
+    "score_adjust_points_loading": "处理中...",
+    "score_select_child_none": "请至少选择一个孩子",
+    "score_invalid_points": "请输入有效的分数",
+    "score_batch_adjust_points_with_type": "批量调整积分（{{type}}）",
+    "score_batch_adjust_points_success": "已为 {{count}} 个孩子完成{{type}} {{points}} {{emoji}}的操作。",
+    "score_batch_adjust_points": "批量调整积分",
+    "score_batch_select_child": "选择孩子",
+    "score_batch_adjust_points_remark_placeholder": "请输入调整原因（可选）",
+    "score_batch_adjust_points_placeholder": "请输入统一额度",
+    "score_batch_adjust_points_btn": "确认批量{{type}}"
   },
   "child": {
     "store_title": "心愿商店",
