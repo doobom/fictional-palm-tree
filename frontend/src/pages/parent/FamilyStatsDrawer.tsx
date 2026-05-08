@@ -5,13 +5,20 @@ import { X, BarChart3, Trophy, PieChart as PieChartIcon } from 'lucide-react';
 // 🌟 新增引入了 PieChart, Pie, Legend 等饼图和多维图表组件
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import service, { ApiResponse } from '../../api/request';
+import { useTranslation } from 'react-i18next';
+import { useUserStore } from '../../store';
 
 // 为饼图定义一套好看的颜色池
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
 export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+    const { families, currentFamilyId } = useUserStore();
+    const currentFamily = families.find(f => f.id === currentFamilyId);
+    const pointEmoji = currentFamily?.point_emoji || '🪙';
+  
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
@@ -36,15 +43,15 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
         <div className="px-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3 transition-colors">
           <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <BarChart3 size={22} className="text-blue-500" />
-            <h3 className="text-lg font-bold">家庭数据中心</h3>
+            <h3 className="text-lg font-bold">{ t('parent.stats_title', '家庭数据中心') }</h3>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-colors"><X size={18} /></button>
         </div>
 
         {loading ? (
-          <div className="py-20 text-center text-gray-400 font-bold animate-pulse">正在生成家庭数据报表...</div>
+          <div className="py-20 text-center text-gray-400 font-bold animate-pulse">{ t('parent.stats_loading', '正在生成家庭数据报表...') }</div>
         ) : data.length === 0 ? (
-          <div className="py-20 text-center text-gray-400 font-bold">本周暂无积分变动数据</div>
+          <div className="py-20 text-center text-gray-400 font-bold">{ t('parent.stats_no_data', '本周暂无积分变动数据') }</div>
         ) : (
           <div className="flex-1 space-y-6 overflow-y-auto p-4 overscroll-y-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
             
@@ -52,7 +59,7 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
                 1. 本周荣誉榜 (Leaderboard) - 自动高亮净增长第一名
             ========================================= */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-500 flex items-center gap-1.5"><Trophy size={16}/> 本周之星与净分排行</h3>
+              <h3 className="text-sm font-bold text-gray-500 flex items-center gap-1.5"><Trophy size={16}/> { t('parent.stats_leaderboard', '本周之星与净分排行') }</h3>
               {data.map((item, index) => (
                 <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl flex items-center justify-between border border-gray-100 dark:border-gray-700 shadow-sm transition-colors relative overflow-hidden">
                   {/* 第一名发光背景特效 */}
@@ -67,7 +74,7 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
                       <p className={`font-black text-lg ${index === 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>
                         {item.name}
                       </p>
-                      <p className="text-xs text-gray-500 font-medium">净增长: {item.net_score} 分</p>
+                      <p className="text-xs text-gray-500 font-medium">{ t('parent.stats_net_growth', '净增长: {{score}} {{pointEmoji}}', { score: item.net_score, pointEmoji: pointEmoji }) }</p>
                     </div>
                   </div>
                   <div className="text-right relative z-10">
@@ -82,7 +89,7 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
                 2. 多维对比 (Earned vs Spent) - 分组柱状图
             ========================================= */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 h-[280px] shadow-sm transition-colors">
-               <h3 className="text-sm font-bold text-gray-500 mb-4 flex items-center gap-1.5"><BarChart3 size={16}/> 赚取 vs 消费对比</h3>
+               <h3 className="text-sm font-bold text-gray-500 mb-4 flex items-center gap-1.5"><BarChart3 size={16}/> { t('parent.stats_earned_spent', '赚取 vs 消费对比') }</h3>
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={data} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-gray-200 dark:text-gray-700" />
@@ -94,8 +101,8 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
                    />
                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '10px' }} />
                    {/* 🌟 核心：两个 Bar 并排，直观对比大户 */}
-                   <Bar dataKey="total_earned" name="赚取 (积极行为)" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={35} />
-                   <Bar dataKey="total_spent" name="消费 (惩罚/兑换)" fill="#f87171" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                   <Bar dataKey="total_earned" name={t('parent.stats_earned', '赚取 (积极行为)')} fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                   <Bar dataKey="total_spent" name={t('parent.stats_spent', '消费 (惩罚/兑换)')} fill="#f87171" radius={[6, 6, 0, 0]} maxBarSize={35} />
                  </BarChart>
                </ResponsiveContainer>
             </div>
@@ -104,7 +111,7 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
                 3. 积分贡献占比 (Pie Chart) - 饼图
             ========================================= */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 h-[280px] shadow-sm transition-colors mb-4">
-               <h3 className="text-sm font-bold text-gray-500 mb-2 flex items-center gap-1.5"><PieChartIcon size={16}/> 家庭正向行为贡献度</h3>
+               <h3 className="text-sm font-bold text-gray-500 mb-2 flex items-center gap-1.5"><PieChartIcon size={16}/> { t('parent.stats_contribution', '家庭正向行为贡献度') }</h3>
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
                    <Pie
