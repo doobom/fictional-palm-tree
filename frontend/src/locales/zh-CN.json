@@ -22,7 +22,9 @@
     "submitting": "提交中...",
     "loading": "加载中...",
     "load_failed": "数据加载失败，请稍后再试",
-    "locked": "积分不足"
+    "locked": "积分不足",
+    "undo": "撤回",
+    "system": "系统"
   },
   "auth": {
     "title_login": "登录家庭积分系统",
@@ -46,7 +48,6 @@
     "tab_rewards": "奖品库",
     "tab_settings": "设置",
 
-    "history_title": "历史明细",
     "batch_adjust_points": "批量调整积分",
 
     "btn_add": "确认添加",
@@ -84,6 +85,7 @@
     "family_selector_choose_family": "选择家庭",
     "family_selector_switch_family": "切换家庭",
     "family_selector_create_join_family": "创建/加入家庭",
+    "family_select_first": "请先选择一个家庭",
 
     "category_add_success": "分类添加成功！",
     "category_save_success": "分类修改成功！",
@@ -167,7 +169,22 @@
     "goal_name_placeholder": "愿望名称 (如：游乐园)",
     "goal_target_points_placeholder": "需要多少积分？",
     "goal_save": "保存愿望",
-    "goals_loading": "加载清单中..."
+    "goals_loading": "加载清单中...",
+
+    "history_title": "历史明细",
+    "history_title_for_drawer": "积分流水账单",
+    "history_undo_confirm": "确定要撤回这条记录吗？分数将被退还。",
+    "history_undo_success": "撤回成功",
+    "history_undo_failed": "撤回失败，请稍后再试!",
+    "history_loading": "正在拉取账单...",
+    "history_empty": "还没有任何积分流水记录。",
+    "history_manual_adjust": "手动调整",
+    "history_is_revoked": "已撤回",
+    "history_operator": "操作: {{name}}",
+
+    "routine_checkin_success": "成功为 {{name}} 完成了习惯打卡！",
+    "routine_checkin_title": "今日习惯打卡板",
+    "routine_checkin_admin": "家长代签"
   },
   "child": {
     "store_title": "心愿商店",

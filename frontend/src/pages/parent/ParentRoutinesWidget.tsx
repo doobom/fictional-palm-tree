@@ -4,6 +4,7 @@ import { CheckCircle2, Circle, CalendarClock, Loader2 } from 'lucide-react';
 import service, { ApiResponse } from '../../api/request';
 import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 export default function ParentRoutinesWidget() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +16,10 @@ export default function ParentRoutinesWidget() {
 
   const todayStr = new Date().toLocaleDateString('en-CA');
   const todayDayOfWeek = new Date().getDay();
+
+  const { t } = useTranslation();
+
+  // 🌟 优化：直接在这里根据 routinesList 和 今天的日期，计算出今天需要展示的习惯列表，避免在 render 里每次都过滤一次
 
   const routines = routinesList.filter((r: any) => {
     if (r.frequency === 'daily') return true;
@@ -36,7 +41,7 @@ export default function ParentRoutinesWidget() {
     try {
       const res = await service.post<any, ApiResponse>('/routines/admin-checkin', { routineId, childId, dateStr: todayStr });
       if (res.success) {
-        appToast.success(`已帮 ${childName} 完成打卡！`);
+        appToast.success( t('parent.routine_checkin_success', { name: childName }));
         // 1. 刷新习惯打卡板的 UI 状态 (变绿)
         await fetchRoutinesAction(currentFamilyId!);
         
@@ -57,9 +62,9 @@ export default function ParentRoutinesWidget() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <CalendarClock className="text-blue-500" size={20} />
-          <h2 className="text-lg font-black text-gray-900 dark:text-white">今日习惯打卡板</h2>
+          <h2 className="text-lg font-black text-gray-900 dark:text-white">{ t('parent.routine_checkin_title') }</h2>
         </div>
-        <span className="text-xs font-bold text-gray-400">家长代签</span>
+        <span className="text-xs font-bold text-gray-400">{ t('parent.routine_checkin_admin') }</span>
       </div>
 
       <div className="space-y-4">

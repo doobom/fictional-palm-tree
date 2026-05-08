@@ -22,7 +22,9 @@
     "submitting": "Submitting...",
     "loading": "Loading...",
     "load_failed": "Failed to load data, please try again later",
-    "locked": "Insufficient Points"
+    "locked": "Insufficient Points",
+    "undo": "Undo",
+    "system": "System"
   },
   "auth": {
     "title_login": "Welcome to Family Points",
@@ -46,7 +48,6 @@
     "tab_rewards": "Rewards",
     "tab_settings": "Settings",
 
-    "history_title": "History",
     "batch_adjust_points": "Batch Adjust Points",
 
     "btn_add": "Add",
@@ -84,6 +85,7 @@
     "family_selector_choose_family": "Choose Family",
     "family_selector_switch_family": "Switch Family",
     "family_selector_create_join_family": "Create/Join Family",
+    "family_select_first": "Please select a family first",
 
     "category_add_success": "Category added successfully!",
     "category_save_success": "Category updated successfully!",
@@ -167,7 +169,22 @@
     "goal_name_placeholder": "Goal name (e.g. Amusement Park)",
     "goal_target_points_placeholder": "How many points needed?",
     "goal_save": "Save Goal",
-    "goal_loading": "Loading goals..."
+    "goal_loading": "Loading goals...",
+
+    "history_title": "History",
+    "history_title_for_drawer": "Points History",
+    "history_undo_confirm": "Are you sure you want to undo this record? Points will be refunded.",
+    "history_undo_success": "Undo successful!",
+    "history_undo_failed": "Failed to undo, please try again later.",
+    "history_loading": "Loading history...",
+    "history_empty": "No points history records yet.",
+    "history_manual_adjust": "Manual Adjustment",
+    "history_is_revoked": "Revoked",
+    "history_operator": "Operator: {{name}}",
+
+    "routine_checkin_success": "Checked in {{name}}'s routine successfully!",
+    "routine_checkin_title": "Today's Routine Check-in Board",
+    "routine_checkin_admin": "Admin Check-in"
   },
   "child": {
     "store_title": "Wish Store",

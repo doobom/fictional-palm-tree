@@ -4,7 +4,9 @@ import { createPortal } from 'react-dom';
 import { X, ReceiptText, Clock, RotateCcw } from 'lucide-react';
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
+import { useTranslation
 
+ } from 'react-i18next';
 interface HistoryDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,6 +18,7 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [nowTime, setNowTime] = useState(Date.now()); // 用来触发 5 分钟超时重绘
+  const { t } = useTranslation();
 
   useEffect(() => {
     let timer: any;
@@ -43,18 +46,18 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
   };
   
   const handleUndo = async (historyId: string) => {
-    if (!window.confirm('确定要撤回这条记录吗？分数将被退还。')) return;
+    if (!window.confirm(t('parent.history_undo_confirm'))) return;
     
     // 获取本地时区名传给后端
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     
     try {
       await service.post('/scores/undo', { historyId, timezone });
-      appToast.success('撤回成功');
+      appToast.success(t('parent.history_undo_success'));
       fetchHistory(); // 刷新列表
       if (onSuccess) onSuccess(); // 通知父组件刷新数据
     } catch (error: any) {
-      appToast.error(error.response?.data?.errorMessage || '撤回失败');
+      appToast.error(error.response?.data?.errorMessage || t('parent.history_undo_failed'));
       fetchHistory(); // 如果超时了后端报错，顺便刷新一下列表
     }
   };
@@ -89,24 +92,24 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
         <div className="px-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3 transition-colors">
           <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <ReceiptText size={22} className="text-blue-500" />
-            <h3 className="text-lg font-bold">积分流水账单</h3>
+            <h3 className="text-lg font-bold">{ t('parent.history_title_for_drawer') }</h3>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-colors"><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 overscroll-y-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           {loading ? (
-            <div className="text-center py-10 text-gray-400 font-medium">正在拉取账单...</div>
+            <div className="text-center py-10 text-gray-400 font-medium">{ t('parent.history_loading') }</div>
           ) : historyLogs.length === 0 ? (
             <div className="text-center py-16 flex flex-col items-center">
               <span className="text-5xl mb-4 opacity-50">📭</span>
-              <p className="text-gray-400 font-medium">还没有任何积分流水记录</p>
+              <p className="text-gray-400 font-medium">{ t('parent.history_empty') }</p>
             </div>
           ) : (
             <div className="space-y-3">
               {historyLogs.map((log) => {
                 const isAdd = log.points > 0;
-                const title = log.rule_name || log.remark || '手动调整';
+                const title = log.rule_name || log.remark || t('parent.history_manual_adjust');
                 const emoji = log.rule_emoji || (isAdd ? '💰' : '📝');
                 
                 // 🌟 判断是否被撤回
@@ -128,11 +131,11 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
                           {emoji} {title}
                         </span>
                         {/* 作废印章 */}
-                        {isRevoked && <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded-md font-bold">已撤回</span>}
+                        {isRevoked && <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded-md font-bold">{ t('parent.history_is_revoked') }</span>}
                       </div>
                       <div className="flex items-center text-[11px] text-gray-400 dark:text-gray-500 gap-2">
                         <span className="flex items-center gap-0.5"><Clock size={10} /> {formatTime(log.created_at)}</span>
-                        <span>•</span><span>{log.child_name}</span><span>•</span><span className="truncate">操作: {log.operator_name || '系统'}</span>
+                        <span>•</span><span>{log.child_name}</span><span>•</span><span className="truncate">{ t('parent.history_operator', { name: log.operator_name || t('common.system') }) }</span>
                       </div>
                     </div>
 
@@ -148,7 +151,7 @@ export default function HistoryDrawer({ isOpen, onClose, childId, onSuccess }: H
                           onClick={() => handleUndo(log.id)}
                           className="mt-1 flex items-center gap-0.5 text-[10px] text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-md font-bold active:scale-95 transition-transform"
                         >
-                          <RotateCcw size={10} /> 撤回
+                          <RotateCcw size={10} /> { t('common.undo') }
                         </button>
                       )}
                     </div>
