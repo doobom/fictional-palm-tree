@@ -4,6 +4,7 @@
     "cancel": "取消",
     "confirm": "确定",
     "delete": "删除",
+    "delete_sucess": "删除成功！",
     "edit": "编辑",
     "search": "搜索",
     "add": "添加",
@@ -24,7 +25,14 @@
     "load_failed": "数据加载失败，请稍后再试",
     "locked": "积分不足",
     "undo": "撤回",
-    "system": "系统"
+    "system": "系统",
+    "weekday_1_short": "一",
+    "weekday_2_short": "二",
+    "weekday_3_short": "三",
+    "weekday_4_short": "四",
+    "weekday_5_short": "五",
+    "weekday_6_short": "六",
+    "weekday_0_short": "日"
   },
   "auth": {
     "title_login": "登录家庭积分系统",
@@ -184,7 +192,26 @@
 
     "routine_checkin_success": "成功为 {{name}} 完成了习惯打卡！",
     "routine_checkin_title": "今日习惯打卡板",
-    "routine_checkin_admin": "家长代签"
+    "routine_checkin_admin": "家长代签",
+    "routine_delete_confirm": "确定要删除吗？历史打卡记录将保留。",
+    "routine_delete_success": "已删除!",
+    "routine_save_success": "保存成功！",
+    "routine_notification_name_required": "请输入任务名称.",
+    "routine_notification_day_required": "请至少选择一天作为每周任务的重复日期.",
+    "routine_manager_title": "常规任务管理",
+    "routine_edit": "编辑任务",
+    "routine_create": "新建任务",
+    "routine_add": "添加新任务",
+    "routine_name_placeholder": "任务名称 (如: 洗碗)",
+    "routine_points_placeholder": "完成后奖励的积分",
+    "routine_for_all": "全家通用",
+    "routine_for": "{{name}}专属",
+    "routine_frequency_daily": "每天重复",
+    "routine_frequency_weekly": "指定星期",
+    "routine_auto_approve": "打卡后免审批，自动发放积分",
+    "routine_save": "保存发布",
+    "routine_manual_review": "需审核",
+    "routine_auto_approve_short": "免审批"
   },
   "child": {
     "store_title": "心愿商店",

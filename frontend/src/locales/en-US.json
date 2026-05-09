@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "delete": "Delete",
+    "delete_sucess": "Deleted successfully!",
     "edit": "Edit",
     "search": "Search",
     "add": "Add",
@@ -24,7 +25,14 @@
     "load_failed": "Failed to load data, please try again later",
     "locked": "Insufficient Points",
     "undo": "Undo",
-    "system": "System"
+    "system": "System",
+    "weekday_1_short": "Mon",
+    "weekday_2_short": "Tue",
+    "weekday_3_short": "Wed",
+    "weekday_4_short": "Thu",
+    "weekday_5_short": "Fri",
+    "weekday_6_short": "Sat",
+    "weekday_0_short": "Sun"
   },
   "auth": {
     "title_login": "Welcome to Family Points",
@@ -183,8 +191,27 @@
     "history_operator": "Operator: {{name}}",
 
     "routine_checkin_success": "Checked in {{name}}'s routine successfully!",
-    "routine_checkin_title": "Today's Routine Check-in Board",
-    "routine_checkin_admin": "Admin Check-in"
+    "routine_checkin_title": "Routine Check-in Board",
+    "routine_checkin_admin": "Admin Check-in",
+    "routine_delete_confirm": "Are you sure you want to delete this routine? Historical check-in records will be kept.",
+    "routine_delete_success": "Routine deleted!",
+    "routine_save_success": "Routine saved successfully!",
+    "routine_notification_name_required": "Please enter the routine name.",
+    "routine_notification_day_required": "Please select at least one day for weekly routine.",
+    "routine_manager_title": "Routine Management",
+    "routine_edit": "Edit Routine",
+    "routine_create": "Create Routine",
+    "routine_add": "Add Routine",
+    "routine_name_placeholder": "Routine name (e.g. Do homework)",
+    "routine_points_placeholder": "Points for completion",
+    "routine_for_all": "For All Children",
+    "routine_for": "For {{name}}",
+    "routine_frequency_daily": "Daily",
+    "routine_frequency_weekly": "Weekly",
+    "routine_auto_approve": "Auto-approve check-in",
+    "routine_save": "Save Routine",
+    "routine_manual_review_short": "Manual review required",
+    "routine_auto_approve_short": "Auto-approve"
   },
   "child": {
     "store_title": "Wish Store",
