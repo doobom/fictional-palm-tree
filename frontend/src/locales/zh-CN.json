@@ -206,11 +206,12 @@
     "routine_points_placeholder": "完成后奖励的积分",
     "routine_for_all": "全家通用",
     "routine_for": "{{name}}专属",
+    "routine_for_someone": "专属",
     "routine_frequency_daily": "每天重复",
     "routine_frequency_weekly": "指定星期",
     "routine_auto_approve": "打卡后免审批，自动发放积分",
     "routine_save": "保存发布",
-    "routine_manual_review": "需审核",
+    "routine_manual_review_short": "需审核",
     "routine_auto_approve_short": "免审批"
   },
   "child": {

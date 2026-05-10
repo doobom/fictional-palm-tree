@@ -139,8 +139,8 @@ export default function RoutineManagerDrawer({ isOpen, onClose }: { isOpen: bool
                 <div>
                    <h4 className="font-bold dark:text-white">{r.name} <span className="text-blue-500">+{r.points}</span></h4>
                    <p className="text-xs text-gray-500 mt-1 flex gap-2">
-                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{r.child_id ? t('parent.routine_for', { name: r.child_name }) : t('parent.routine_for_all')}</span>
-                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{r.auto_approve ? t('parent.routine_auto_approve_short') : t('parent.routine_manual_review')}</span>
+                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{r.child_id ? t('parent.routine_for_someone') : t('parent.routine_for_all')}</span>
+                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{r.auto_approve ? t('parent.routine_auto_approve_short') : t('parent.routine_manual_review_short')}</span>
                      <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-500 px-2 py-0.5 rounded">{r.frequency === 'daily' ? t('parent.routine_frequency_daily') : t('parent.routine_frequency_weekly')}</span>
                    </p>
                 </div>

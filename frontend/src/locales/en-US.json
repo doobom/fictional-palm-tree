@@ -206,12 +206,13 @@
     "routine_points_placeholder": "Points for completion",
     "routine_for_all": "For All Children",
     "routine_for": "For {{name}}",
+    "routine_for_someone": "Someone",
     "routine_frequency_daily": "Daily",
     "routine_frequency_weekly": "Weekly",
     "routine_auto_approve": "Auto-approve check-in",
     "routine_save": "Save Routine",
-    "routine_manual_review_short": "Manual review required",
-    "routine_auto_approve_short": "Auto-approve"
+    "routine_manual_review_short": "Manual",
+    "routine_auto_approve_short": "Auto"
   },
   "child": {
     "store_title": "Wish Store",
