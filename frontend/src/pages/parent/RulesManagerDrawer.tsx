@@ -5,6 +5,7 @@ import { X, Plus, Trash2, Edit2, Check, Star, BookOpen, ChevronRight, CheckCircl
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
 import { useUserStore, Child } from '../../store';
+import { useTranslation } from 'react-i18next';
 
 export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
   const { childrenList } = useUserStore();
@@ -12,6 +13,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
   const [rules, setRules] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
   
   // 🌟 表单核心状态全部回归
   const [actionType, setActionType] = useState<'add' | 'deduct'>('add');
@@ -91,24 +93,24 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
       dailyLimit: newDailyLimit ? parseInt(String(newDailyLimit), 10) : 0 // 🌟 发送给后端
     });
     
-    appToast.success(editingId ? '修改成功' : '添加成功');
+    appToast.success(editingId ? t('common.edit_successful') : t('common.add_successful'));
     resetForm();
     fetchRules(); 
     onSuccess();
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('确定要删除这条规则吗？')) return;
+    if (!window.confirm(t('parent.rules_delete_confirm'))) return;
     try {
       await service.delete(`/rules/manage/${id}`);
-      appToast.success('删除成功');
+      appToast.success(t('common.delete_successful'));
       fetchRules(); onSuccess();
-    } catch (err) { appToast.error('删除失败'); }
+    } catch (err) { appToast.error(t('common.delete_failed')); }
   };
 
   if (!isOpen || typeof document === 'undefined') return null;
 
-  const stageLabels: any = { kindergarten: '幼儿园', primary: '小学阶段', middle_high: '中学/高中' };
+  const stageLabels: any = { kindergarten: t('parent.rules_stage_kindergarten'), primary: t('parent.rules_stage_primary'), middle_high: t('parent.rules_stage_middle_high') };
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
@@ -119,8 +121,8 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
 
         <div className="px-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-2 transition-colors">
           <div className="flex gap-4">
-            <button onClick={() => { setActiveTab('list'); resetForm(); }} className={`pb-2 text-lg font-bold transition-colors ${activeTab === 'list' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>当前规则</button>
-            <button onClick={() => setActiveTab('templates')} className={`pb-2 text-lg font-bold transition-colors ${activeTab === 'templates' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>模板库</button>
+            <button onClick={() => { setActiveTab('list'); resetForm(); }} className={`pb-2 text-lg font-bold transition-colors ${activeTab === 'list' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>{ t('parent.rules_current', '当前规则') } </button>
+            <button onClick={() => setActiveTab('templates')} className={`pb-2 text-lg font-bold transition-colors ${activeTab === 'templates' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>{ t('parent.rules_templates', '模板库') }</button>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500">✕</button>
         </div>
@@ -130,30 +132,30 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
             <>
               {/* 🌟 恢复完美的表单结构：包含所有控制项 */}
               <form onSubmit={handleSave} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
-                <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">{editingId ? '✏️ 编辑规则' : '✨ 新增规则'}</h4>
+                <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">{editingId ? t('parent.rules_edit', '✏️ 编辑规则') : t('parent.rules_add', '✨ 新增规则')}</h4>
                 
                 {/* 1. 奖惩切换 */}
                 <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-3 transition-colors">
-                  <button type="button" onClick={() => setActionType('add')} className={`flex-1 py-2 font-bold rounded-lg text-sm transition-all ${actionType === 'add' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>奖励 (加分)</button>
-                  <button type="button" onClick={() => setActionType('deduct')} className={`flex-1 py-2 font-bold rounded-lg text-sm transition-all ${actionType === 'deduct' ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>约束 (扣分)</button>
+                  <button type="button" onClick={() => setActionType('add')} className={`flex-1 py-2 font-bold rounded-lg text-sm transition-all ${actionType === 'add' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.rules_reward', '奖励 (加分)') }</button>
+                  <button type="button" onClick={() => setActionType('deduct')} className={`flex-1 py-2 font-bold rounded-lg text-sm transition-all ${actionType === 'deduct' ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.rules_penalty', '约束 (扣分)') }</button>
                 </div>
 
                 {/* 2. 图标、名称、分值 */}
                 <div className="flex gap-2 mb-3">
-                  <input type="text" value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="图标" maxLength={2} className="w-12 shrink-0 h-12 text-center text-xl rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
-                  <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="名称 (如: 洗碗)" required className="flex-1 min-w-0 h-12 px-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
-                  <input type="number" value={newPoints} onChange={e => setNewPoints(parseInt(e.target.value) || '')} placeholder="分值" required min="1" className="w-16 shrink-0 h-12 px-2 text-center font-bold rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
+                  <input type="text" value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder={ t('parent.rules_emoji_placeholder', '图标') } maxLength={2} className="w-12 shrink-0 h-12 text-center text-xl rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
+                  <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder={ t('parent.rules_name_placeholder', '名称 (如: 洗碗)') } required className="flex-1 min-w-0 h-12 px-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
+                  <input type="number" value={newPoints} onChange={e => setNewPoints(parseInt(e.target.value) || '')} placeholder={ t('parent.rules_points_placeholder', '分值') } required min="1" className="w-16 shrink-0 h-12 px-2 text-center font-bold rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
                 </div>
 
                 {/* 3. 日限次数与对象选择 */}
                 <div className="flex gap-2 mb-4">
                   <div className="flex-1 flex items-center bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-2 focus-within:ring-2 focus-within:ring-blue-500 transition-colors">
-                    <span className="text-xs font-bold text-gray-500 shrink-0">每日限</span>
-                    <input type="number" value={newDailyLimit} onChange={e => setNewDailyLimit(parseInt(e.target.value) || '')} placeholder="不限" min="1" className="w-full h-10 px-2 bg-transparent outline-none text-center font-bold text-gray-900 dark:text-white placeholder-gray-400" />
-                    <span className="text-xs font-bold text-gray-500 shrink-0">次</span>
+                    <span className="text-xs font-bold text-gray-500 shrink-0">{ t('parent.rules_daily_limit', '每日限') }</span>
+                    <input type="number" value={newDailyLimit} onChange={e => setNewDailyLimit(parseInt(e.target.value) || '')} placeholder={ t('parent.rules_unlimited', '不限') } min="1" className="w-full h-10 px-2 bg-transparent outline-none text-center font-bold text-gray-900 dark:text-white placeholder-gray-400" />
+                    <span className="text-xs font-bold text-gray-500 shrink-0">{ t('parent.rules_daily_limit_unit', '次') }</span>
                   </div>
                   <select value={targetChildId} onChange={e => setTargetChildId(e.target.value)} className="flex-[1.5] min-w-0 h-11 px-2 rounded-xl bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
-                    <option value="">👨‍👩‍👧‍👦 所有人 (通用)</option>
+                    <option value="">{ t('parent.rules_for_all', '所有人 (通用)') }</option>
                     {childrenList.map((c: any) => <option key={c.id} value={c.id}>{c.avatar} {c.name}</option>)}
                   </select>
                 </div>
@@ -161,10 +163,10 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
                 {/* 4. 操作按钮 */}
                 <div className="flex gap-2">
                   {editingId && (
-                    <button type="button" onClick={resetForm} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl active:scale-95 transition-all">取消编辑</button>
+                    <button type="button" onClick={resetForm} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl active:scale-95 transition-all">{ t('common.cancel_editing', '取消编辑') }</button>
                   )}
                   <button type="submit" className={`flex-[2] py-3 text-white font-bold rounded-xl active:scale-95 transition-transform flex items-center justify-center ${actionType === 'add' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-500 hover:bg-red-600'}`}>
-                    {editingId ? <><Check size={18} className="mr-1" /> 保存修改</> : <><Plus size={18} className="mr-1" /> 添加规则</>}
+                    {editingId ? <><Check size={18} className="mr-1" /> { t('common.save', '保存') }</> : <><Plus size={18} className="mr-1" /> { t('common.add', '添加') }</>}
                   </button>
                 </div>
               </form>
@@ -182,10 +184,10 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
                           </span>
                           {/* 🌟 列表展示日限标签 */}
                           {r.daily_limit > 0 && (
-                            <span className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md font-bold">每日 {r.daily_limit} 次</span>
+                            <span className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md font-bold">{ t('parent.rules_daily_limit_with_times', '每日 {0} 次', { 0: r.daily_limit }) }</span>
                           )}
                           <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-md font-bold">
-                            对 {r.child_id ? childrenList.find(c => c.id === r.child_id)?.name : '所有人'}
+                            { r.child_id ? t('parent.rules_for', '专属: {name}', { name: childrenList.find(c => c.id === r.child_id)?.name }) : t('parent.rules_for_all', '所有人 (通用)') }
                           </span>
                         </div>
                       </div>
@@ -203,9 +205,9 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
             // 模板库逻辑保持不变
             <div className="space-y-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/50">
-                <p className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">选择规则适用的孩子</p>
+                <p className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">{ t('parent.rules_select_child', '选择规则适用的孩子') }</p>
                 <select value={targetChildId} onChange={e => setTargetChildId(e.target.value)} className="w-full h-11 px-3 rounded-xl bg-white dark:bg-gray-800 border-none outline-none text-gray-800 dark:text-gray-200 shadow-sm transition-colors">
-                  <option value="">👨‍👩‍👧‍👦 全体通用 (不限孩子)</option>
+                  <option value="">{ t('parent.rules_for_all', '所有人 (通用)') }</option>
                   {childrenList.map((c: any) => <option key={c.id} value={c.id}>{c.avatar} {c.name}</option>)}
                 </select>
               </div>
@@ -218,7 +220,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
                       <h4 className="font-bold text-gray-800 dark:text-gray-100">{stageLabels[stage]}</h4>
                     </div>
                     <button onClick={() => handleImport(stage)} disabled={loading} className="text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded-full active:scale-95 disabled:bg-gray-300 transition-all flex items-center gap-1">
-                      {loading ? '导入中' : <><CheckCircle2 size={12} /> 一键导入</>}
+                      {loading ? t('parent.rules_importing', '导入中') : <><CheckCircle2 size={12} /> { t('parent.rules_import', '一键导入') }</>}
                     </button>
                   </div>
                   <div className="p-4 grid grid-cols-1 gap-2">
