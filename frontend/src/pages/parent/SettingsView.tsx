@@ -17,7 +17,7 @@ import {
   Settings, Baby, ShieldCheck, Copy, Smartphone, Plus, 
   UserCircle, Tags, Trash2, HelpCircle, Info, MessageSquare, ChevronRight, 
   Globe, Calendar, MapPin, Edit3, Sun, Database, DownloadCloud, UploadCloud, AlertTriangle,
-  Bell, Clock, CheckSquare, Save, 
+  Bell, Clock, CheckSquare, Save, X,
 } from 'lucide-react';
 
 export default function SettingsView() {
@@ -557,7 +557,7 @@ export default function SettingsView() {
             <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{ t('parent.profile_children_avatar_label', '头像') }</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.avatar} onChange={e => setChildForm({...childForm, avatar: e.target.value})} maxLength={2} /></div>
             <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{ t('parent.profile_children_name_label', '孩子昵称/小名') }</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.name} onChange={e => setChildForm({...childForm, name: e.target.value})} placeholder={t('parent.profile_children_name_placeholder', '输入称呼')} /></div>
           </div>
-          <div>
+          <div className="flex flex-col">
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Calendar size={16}/> {t('parent.profile_children_birthday_label', '生日 (可选)')}</label>
             <input type="date" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.birthday} onChange={e => setChildForm({...childForm, birthday: e.target.value})} />
           </div>
@@ -565,8 +565,8 @@ export default function SettingsView() {
       </BottomDrawer>
 
       {/* 5. 家长成员 */}
-      <Section title="家长成员" icon={<ShieldCheck size={22} />} isOpen={openSection === 'members'} onToggle={() => setOpenSection(openSection === 'members' ? '' : 'members' as any)}>
-        <div className="space-y-3 pt-2">
+      <Section title={ t('parent.profile_family_member_management_title', '家长成员') } icon={<ShieldCheck size={22} />} isOpen={openSection === 'members'} onToggle={() => setOpenSection(openSection === 'members' ? '' : 'members' as any)}>
+        <div className="space-y-3 pt-4">
           {members.map(member => (
             <div key={member.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl transition-colors">
               <span className="text-3xl bg-white dark:bg-gray-800 p-2 rounded-xl transition-colors">{member.avatar}</span>
@@ -576,16 +576,16 @@ export default function SettingsView() {
               </div>
             </div>
           ))}
-          {isAdmin && <button onClick={() => handleGenerateCode('admin')} className="w-full flex justify-center items-center gap-2 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"><Plus size={18} /> 邀请家人加入</button>}
+          {isAdmin && <button onClick={() => handleGenerateCode('admin')} className="w-full flex justify-center items-center gap-2 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"><Plus size={18} /> { t('parent.profile_family_invite_member', '邀请家人加入') }</button>}
         </div>
       </Section>
 
       {/* 6. 数据安全与备份 */}
-      <Section title="数据安全与备份" icon={<Database size={22} />} isOpen={openSection === 'backup'} onToggle={() => setOpenSection(openSection === 'backup' ? '' : 'backup' as any)}>
+      <Section title={ t('parent.system_backup_and_import_title', '数据安全与备份') } icon={<Database size={22} />} isOpen={openSection === 'backup'} onToggle={() => setOpenSection(openSection === 'backup' ? '' : 'backup' as any)}>
         <div className="pt-2 space-y-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/50">
-            <p className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">您的数据完全掌握在自己手中</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400">所有积分流水、孩子资料、心愿任务均可随时一键打包为 ZIP 格式下载到本地保存。</p>
+            <p className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">{ t('parent.system_backup_desc', '您的数据完全掌握在自己手中') }</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">{ t('parent.system_backup_desc_detail', '所有积分流水、孩子资料、心愿任务均可随时一键打包为 ZIP 格式下载到本地保存。') }</p>
           </div>
           
           <div className="flex gap-3">
@@ -594,7 +594,7 @@ export default function SettingsView() {
               disabled={isProcessingBackup}
               className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-blue-600 hover:text-white dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
-              <DownloadCloud size={18} /> 导出备份
+              <DownloadCloud size={18} /> { t('parent.system_export_backup_btn', '导出备份') }
             </button>
             
             <button 
@@ -602,7 +602,7 @@ export default function SettingsView() {
               disabled={isProcessingBackup || !isAdmin}
               className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-orange-500 hover:text-white dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
             >
-              <UploadCloud size={18} /> 上传恢复
+              <UploadCloud size={18} /> { t('parent.system_import_backup_btn', '上传恢复') }
             </button>
             <input type="file" accept=".zip,.json" ref={fileInputRef} className="hidden" onChange={handleImportFileChange} />
           </div>
@@ -614,15 +614,15 @@ export default function SettingsView() {
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
           <button onClick={() => setFeedbackOpen(true)} className="w-full flex items-center gap-3 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors border-b border-gray-50 dark:border-gray-700/50">
             <MessageSquare size={20} className="text-orange-500 dark:text-orange-400" />
-            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">意见反馈</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">{ t('parent.system_feedback_btn', '意见反馈') }</span>
           </button>
           <button onClick={() => window.Telegram?.WebApp?.openTelegramLink('https://t.me/+-dVp6A1EnMZjOGI1')} className="w-full flex items-center gap-3 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors border-b border-gray-50 dark:border-gray-700/50">
             <HelpCircle size={20} className="text-blue-500 dark:text-blue-400" />
-            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">帮助与支持</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">{ t('parent.system_help_btn', '帮助与支持') }</span>
           </button>
           <button onClick={handleClearCache} className="w-full flex items-center gap-3 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors">
             <Trash2 size={20} className="text-red-500 dark:text-red-400" />
-            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">清除本地缓存</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200 flex-1 text-left transition-colors">{ t('parent.system_clear_cache_btn', '清除本地缓存') }</span>
           </button>
         </div>
         <p className="text-center text-gray-400 dark:text-gray-500 text-xs font-bold mt-6 uppercase tracking-widest flex items-center justify-center gap-1 transition-colors">
@@ -633,48 +633,48 @@ export default function SettingsView() {
       {/* --- 全局功能弹窗区 --- */}
       <CategoryManagerDrawer isOpen={isCategoryDrawerOpen} onClose={() => { setIsCategoryDrawerOpen(false); fetchCategories(); }} />
 
-      <BottomDrawer isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} title="意见反馈" footer={<button onClick={handleSendFeedback} disabled={isSubmittingFeedback || !feedbackText.trim()} className="w-full py-4 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold rounded-xl shadow-lg active:scale-[0.98] disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:shadow-none transition-all">{isSubmittingFeedback ? '发送中...' : '提交反馈给管理员'}</button>}>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center font-medium transition-colors">有任何问题或建议，请告诉我们。消息将直接发送给系统开发组。</p>
-        <textarea className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4 text-gray-800 dark:text-gray-100 font-bold outline-none focus:ring-2 focus:ring-orange-500 resize-none h-36 transition-colors" placeholder="请详细描述您的问题..." value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} />
+      <BottomDrawer isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} title={t('parent.system_feedback_title', '意见反馈')} footer={<button onClick={handleSendFeedback} disabled={isSubmittingFeedback || !feedbackText.trim()} className="w-full py-4 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold rounded-xl shadow-lg active:scale-[0.98] disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:shadow-none transition-all">{isSubmittingFeedback ? t('common.sending', '发送中...') : t('parent.system_feedback_submit_btn', '提交反馈给管理员')}</button>}>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center font-medium transition-colors">{ t('parent.system_feedback_desc', '有任何问题或建议，请告诉我们。消息将直接发送给系统开发组。') }</p>
+        <textarea className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4 text-gray-800 dark:text-gray-100 font-bold outline-none focus:ring-2 focus:ring-orange-500 resize-none h-36 transition-colors" placeholder={t('parent.system_feedback_placeholder', '请详细描述您的问题...')} value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} />
       </BottomDrawer>
 
       {/* 危险操作：恢复确认弹窗 */}
-      <BottomDrawer isOpen={restoreWarningOpen} onClose={() => { setRestoreWarningOpen(false); setImportFile(null); }} title="⚠️ 严重警告" footer={
+      <BottomDrawer isOpen={restoreWarningOpen} onClose={() => { setRestoreWarningOpen(false); setImportFile(null); }} title={t('parent.system_restore_warning_title', '⚠️ 严重警告')} footer={
         <div className="flex gap-3">
-          <button onClick={() => { setRestoreWarningOpen(false); setImportFile(null); }} className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl active:scale-95 transition-all">取消操作</button>
+          <button onClick={() => { setRestoreWarningOpen(false); setImportFile(null); }} className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl active:scale-95 transition-all">{ t('common.cancel_action', '取消操作') }</button>
           <button onClick={executeRestore} disabled={isProcessingBackup} className="flex-1 py-4 bg-red-600 text-white font-black rounded-xl shadow-lg shadow-red-200 dark:shadow-none active:scale-95 flex justify-center items-center gap-2 transition-all">
-            {isProcessingBackup ? '正在恢复...' : '明白风险，确认覆盖'}
+            {isProcessingBackup ? t('common.restoring', '正在恢复...') : t('parent.system_restore_confirm', '明白风险，确认覆盖')}
           </button>
         </div>
       }>
         <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-2xl p-5 mb-4 space-y-3">
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black text-lg">
-            <AlertTriangle size={24} /> 确认覆盖现有数据？
+            <AlertTriangle size={24} /> { t('parent.system_restore_warning_question', '确认覆盖现有数据？') }
           </div>
           <p className="text-red-800 dark:text-red-300 text-sm font-medium leading-relaxed">
-            您即将导入备份文件 <span className="font-bold border-b border-red-300">{importFile?.name}</span>。
+            { t('parent.system_restore_warning_file_desc', '您即将导入备份文件: ') }<span className="font-bold border-b border-red-300">{importFile?.name}</span>
           </p>
           <p className="text-red-800 dark:text-red-300 text-sm font-medium leading-relaxed">
-            执行恢复操作后，当前系统内所有最新的积分流水、待办任务和审核记录将被 <span className="font-black underline">完全清空</span>，并替换为该备份文件中的历史状态。
+            { t('parent.system_restore_warning_desc_detail', '执行恢复操作后，当前系统内所有最新的积分流水、待办任务和审核记录将被 <span className="font-black underline">完全清空</span>，并替换为该备份文件中的历史状态。') }
           </p>
-          <p className="text-red-600 dark:text-red-400 text-xs font-bold pt-2">此操作不可逆！如果担心出错，请在覆盖前先执行一次【导出备份】。</p>
+          <p className="text-red-600 dark:text-red-400 text-xs font-bold pt-2">{ t('parent.system_restore_warning_desc', '此操作不可逆！如果担心出错，请在覆盖前先执行一次【导出备份】。') }</p>
         </div>
       </BottomDrawer>
 
       {inviteModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 animate-fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative transition-colors duration-300">
-            <button onClick={() => setInviteModal(null)} className="absolute right-4 top-4 w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 font-bold flex items-center justify-center transition-colors">✕</button>
+            <button onClick={() => setInviteModal(null)} className="absolute right-4 top-4 w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 font-bold flex items-center justify-center transition-colors"><X size={18} /></button>
             <div className="text-center mt-2">
               <h2 className="text-2xl font-black text-gray-800 dark:text-gray-100 mb-2 transition-colors">{inviteModal.title}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 transition-colors">{inviteModal.desc}</p>
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-2xl mb-6 border-2 border-dashed border-gray-300 dark:border-gray-600 transition-colors">
                 <p className="text-4xl font-mono font-black text-blue-600 dark:text-blue-400 tracking-widest transition-colors">{inviteModal.code}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 transition-colors">有效期 7 天</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 transition-colors">{ t('parent.profile_invite_modal_validity', '有效期 7 天') }</p>
               </div>
               <div className="space-y-3">
-                <button onClick={() => copyToClipboard(inviteModal.code)} className="w-full flex justify-center items-center gap-2 py-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold rounded-xl active:scale-95 transition-all"><Copy size={18} /> 复制凭证码</button>
-                <button onClick={() => copyToClipboard(`【FamilyPoints】${inviteModal.title}\n凭证码：${inviteModal.code}\n快速链接：${inviteModal.link}`)} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-transform">复制完整链接发送</button>
+                <button onClick={() => copyToClipboard(inviteModal.code)} className="w-full flex justify-center items-center gap-2 py-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold rounded-xl active:scale-95 transition-all"><Copy size={18} /> { t('parent.profile_invite_modal_copy_code', '复制凭证码') }</button>
+                <button onClick={() => copyToClipboard(t('parent.profile_invite_modal_link_detail', '【FamilyPoints】${inviteModal.title}\n凭证码：${inviteModal.code}\n快速链接：${inviteModal.link}', { ...inviteModal }))} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-transform">{ t('parent.profile_invite_modal_copy_link', '复制完整链接发送') }</button>
               </div>
             </div>
           </div>
