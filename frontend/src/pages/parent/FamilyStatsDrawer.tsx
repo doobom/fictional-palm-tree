@@ -101,8 +101,8 @@ export default function FamilyStatsDrawer({ isOpen, onClose }: { isOpen: boolean
                    />
                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '10px' }} />
                    {/* 🌟 核心：两个 Bar 并排，直观对比大户 */}
-                   <Bar dataKey="total_earned" name={t('parent.stats_earned', '赚取 (积极行为)')} fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={35} />
-                   <Bar dataKey="total_spent" name={t('parent.stats_spent', '消费 (惩罚/兑换)')} fill="#f87171" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                   <Bar dataKey="total_earned" name={t('common.earned', '赚取 (积极行为)')} fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                   <Bar dataKey="total_spent" name={t('common.spent', '消费 (惩罚/兑换)')} fill="#f87171" radius={[6, 6, 0, 0]} maxBarSize={35} />
                  </BarChart>
                </ResponsiveContainer>
             </div>

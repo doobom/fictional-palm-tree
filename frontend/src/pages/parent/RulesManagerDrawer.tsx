@@ -13,6 +13,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
   const [rules, setRules] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false); // 🌟 新增：控制表单显示
   const { t } = useTranslation();
   
   // 🌟 表单核心状态全部回归
@@ -61,6 +62,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
     setActionType(rule.points >= 0 ? 'add' : 'deduct');
     setTargetChildId(rule.child_id || '');
     setNewDailyLimit(rule.daily_limit === 0 ? '' : rule.daily_limit); // 0 转换为空白(不限)
+    setShowForm(true); // 展开表单
   };
 
   const handleImport = async (stage: string) => {
@@ -97,6 +99,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
     resetForm();
     fetchRules(); 
     onSuccess();
+    setShowForm(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -124,15 +127,26 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
             <button onClick={() => { setActiveTab('list'); resetForm(); }} className={`pb-2 text-lg font-bold transition-colors ${activeTab === 'list' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>{ t('parent.rules_current', '当前规则') } </button>
             <button onClick={() => setActiveTab('templates')} className={`pb-2 text-lg font-bold transition-colors ${activeTab === 'templates' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>{ t('parent.rules_templates', '模板库') }</button>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500">✕</button>
+          <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-colors"><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {activeTab === 'list' ? (
             <>
-              {/* 🌟 恢复完美的表单结构：包含所有控制项 */}
+          {!showForm ? (
+            <button 
+              onClick={() => setShowForm(true)} 
+              className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl flex items-center justify-center gap-2 text-gray-500 font-bold hover:bg-white dark:hover:bg-gray-800 transition-all"
+            >
+              <Plus size={20} /> { t('parent.rules_create', '✨ 新增规则') }
+            </button>
+          ) : (
+              /* 🌟 恢复完美的表单结构：包含所有控制项 */
               <form onSubmit={handleSave} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
-                <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">{editingId ? t('parent.rules_edit', '✏️ 编辑规则') : t('parent.rules_add', '✨ 新增规则')}</h4>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-sm text-gray-600 dark:text-gray-300">{editingId ? t('parent.rules_edit', '✏️ 编辑规则') : t('parent.rules_add', '✨ 新增规则')}</span>
+                  <span onClick={() => { setShowForm(false); resetForm();} } className="text-gray-400 text-xs underline cursor-pointer">{ t('common.cancel') }</span>
+                </div>
                 
                 {/* 1. 奖惩切换 */}
                 <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-3 transition-colors">
@@ -140,7 +154,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
                   <button type="button" onClick={() => setActionType('deduct')} className={`flex-1 py-2 font-bold rounded-lg text-sm transition-all ${actionType === 'deduct' ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.rules_penalty', '约束 (扣分)') }</button>
                 </div>
 
-                {/* 2. 图标、名称、分值 */}
+                { /* 2. 图标、名称、分值 */ }
                 <div className="flex gap-2 mb-3">
                   <input type="text" value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder={ t('parent.rules_emoji_placeholder', '图标') } maxLength={2} className="w-12 shrink-0 h-12 text-center text-xl rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
                   <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder={ t('parent.rules_name_placeholder', '名称 (如: 洗碗)') } required className="flex-1 min-w-0 h-12 px-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
@@ -170,7 +184,7 @@ export default function RuleManagerDrawer({ isOpen, onClose, onSuccess }: any) {
                   </button>
                 </div>
               </form>
-
+            ) }
               <div className="space-y-3">
                 {rules.map(r => (
                   <div key={r.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl flex items-center justify-between border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">

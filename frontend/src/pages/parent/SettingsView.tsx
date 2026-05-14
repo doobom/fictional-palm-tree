@@ -22,7 +22,7 @@ import {
 
 export default function SettingsView() {
   const { currentFamilyId, families, childrenList, setChildrenList } = useUserStore();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [openSection, setOpenSection] = useState<'profile' | 'basic'| 'notifications' | 'categories' | 'children' | 'members' | 'backup'>('profile'); // 增加 backup 枚举
 
@@ -90,20 +90,20 @@ export default function SettingsView() {
   };
 
   const handleSaveProfile = async () => {
-    if (!profileData.nick_name.trim()) return appToast.warn('昵称不能为空');
+    if (!profileData.nick_name.trim()) return appToast.warn(t('parent.profile_nick_name_required', '昵称不能为空'));
     try { 
       const payload = { nickName: profileData.nick_name, avatar: profileData.avatar, locale: profileData.locale };
       const res = await service.put<any, ApiResponse>('/user/profile', payload); 
       
       if(res.success){ 
-        appToast.success('个人资料已更新'); 
+        appToast.success(t('parent.profile_save_success', '个人资料已更新')); 
         const currentUserId = userProfile?.id || tgUser?.id || '';
         setUserProfile(prev => ({ ...prev!, nick_name: profileData.nick_name, avatar: profileData.avatar, locale: profileData.locale, id: currentUserId })); 
         setMembers(prevMembers => prevMembers.map(m => String(m.id) === String(currentUserId) ? { ...m, nick_name: profileData.nick_name, avatar: profileData.avatar } : m));
         if (i18n && typeof i18n.changeLanguage === 'function') i18n.changeLanguage(profileData.locale);
         setIsProfileDrawerOpen(false); 
       } 
-    } catch(e) { appToast.error('保存失败，请稍后重试'); } 
+    } catch(e) { appToast.error(t('common.save_failed', '保存失败，请稍后重试')); } 
   };
 
   // 🌟 家庭设置相关
@@ -140,7 +140,7 @@ export default function SettingsView() {
   };
 
   const handleSaveFamily = async () => {
-    if (!editFamilyData.name.trim()) return appToast.warn('家庭名称不能为空');
+    if (!editFamilyData.name.trim()) return appToast.warn(t('parent.profile_family_name_required', '家庭名称不能为空'));
     try { 
       // 🌟 将数组转回 JSON 字符串发给后端
       const payload = {
@@ -149,7 +149,7 @@ export default function SettingsView() {
       };
       const res = await service.put<any, ApiResponse>('/family/config', payload); 
       if(res.success){ 
-        appToast.success('家庭设置已更新'); 
+        appToast.success(t('parent.profile_family_save_success', '家庭设置已更新')); 
         setConfig({...config, ...payload}); 
         setIsFamilyDrawerOpen(false); 
         setIsPushDrawerOpen(false); // 🌟 顺便关掉推送抽屉
@@ -167,57 +167,57 @@ export default function SettingsView() {
   };
 
   const handleSaveChild = async () => {
-    if (!childForm.name.trim()) return appToast.warn('请输入孩子昵称');
+    if (!childForm.name.trim()) return appToast.warn(t('parent.profile_child_name_required', '请输入孩子昵称'));
     try {
       if (childForm.id) { 
         await service.put(`/children/${childForm.id}`, childForm); 
         setChildrenList(childrenList.map(c => c.id === childForm.id ? { ...c, ...childForm } : c)); 
-        appToast.success('孩子资料已更新'); 
+        appToast.success(t('parent.profile_child_save_success', '孩子资料已更新')); 
       } else { 
         const res = await service.post<any, ApiResponse>('/children', childForm); 
         if (res.success) { 
           setChildrenList([...childrenList, { ...childForm, id: res.data?.id || Date.now().toString(), balance: 0 }]); 
-          appToast.success('孩子添加成功'); 
+          appToast.success(t('parent.profile_child_add_success', '孩子添加成功')); 
         } 
       }
       setIsChildDrawerOpen(false);
-    } catch (e) { appToast.error('操作失败'); } 
+    } catch (e) { appToast.error(t('parent.profile_child_save_failed', '操作失败')); } 
   };
 
   const handleGenerateCode = async (type: 'admin' | 'child', targetChildId?: string) => {
-    const toastId = toast.loading('正在提取安全凭证...');
+    const toastId = toast.loading(t('parent.profile_generate_code_loading', '正在提取安全凭证...'));
     try { 
       const res: any = await service.post('/auth/generate-invite', type === 'child' ? { type: 'child', childId: targetChildId } : { type: 'admin' });
       toast.dismiss(toastId);
-      if (res.success) setInviteModal({ title: type === 'child' ? '孩子设备绑定码' : '邀请家人加入', code: res.code || res.data?.code || 'ERROR', link: res.inviteLink || res.data?.inviteLink || '', desc: type === 'child' ? '在孩子的设备上输入此绑定码即可登录。' : '家人通过此码或链接加入您的家庭。' });
+      if (res.success) setInviteModal({ title: type === 'child' ? t('parent.profile_child_invite_code', '孩子设备绑定码') : t('parent.profile_family_invite_code', '邀请家人加入'), code: res.code || res.data?.code || 'ERROR', link: res.inviteLink || res.data?.inviteLink || '', desc: type === 'child' ? t('parent.profile_child_invite_desc', '在孩子的设备上输入此绑定码即可登录。') : t('parent.profile_family_invite_desc', '家人通过此码或链接加入您的家庭。') });
     } catch (err) {
       toast.dismiss(toastId);
-      appToast.error('提取失败');
+      appToast.error(t('parent.profile_generate_code_failed', '提取失败'));
     } 
   };
 
   const handleSendFeedback = async () => {
-    if (!feedbackText.trim()) return appToast.warn('请输入反馈内容哦');
+    if (!feedbackText.trim()) return appToast.warn(t('parent.system_feedback_text_required', '请输入反馈内容哦'));
     setIsSubmittingFeedback(true);
     try {
       await service.post('/system/feedback', { text: feedbackText });
-      appToast.success('感谢反馈！管理员已收到您的消息。');
+      appToast.success(t('parent.system_feedback_sent_success', '感谢反馈！管理员已收到您的消息。'));
       setFeedbackOpen(false); setFeedbackText('');
-    } catch (err) { appToast.error('发送失败，请稍后重试'); } finally { setIsSubmittingFeedback(false); }
+    } catch (err) { appToast.error(t('parent.system_feedback_sent_failed', '发送失败，请稍后重试')); } finally { setIsSubmittingFeedback(false); }
   };
 
   const copyToClipboard = async (text: string) => {
-    try { await navigator.clipboard.writeText(text); appToast.success('内容已复制到剪贴板！'); } catch (err) {} 
+    try { await navigator.clipboard.writeText(text); appToast.success(t('parent.system_copy_to_clipboard_success', '内容已复制到剪贴板！')); } catch (err) {} 
   };
 
   const handleClearCache = () => {
     try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
-    appToast.success('缓存清理成功，正在重启...');
+    appToast.success(t('parent.system_clear_cache_success', '缓存清理成功，正在重启...'));
     setTimeout(() => { window.location.reload(); }, 1500);
   };
 
   const currentUserMember = members.find(m => String(m.id) === String(userProfile?.id || tgUser?.id));
-  const displayNickName = currentUserMember?.nick_name || userProfile?.nick_name || '未设置昵称';
+  const displayNickName = currentUserMember?.nick_name || userProfile?.nick_name || t('parent.profile_no_nick_name', '未设置昵称');
   const displayAvatar = currentUserMember?.avatar || userProfile?.avatar || '🧑';
   const currentLangLabel = SUPPORTED_LANGUAGES.find(l => l.code === profileData.locale)?.label || '简体中文';
 
@@ -230,7 +230,7 @@ export default function SettingsView() {
   // 🌟 导出备份 (智能识别环境)
   const handleExportBackup = async () => {
     setIsProcessingBackup(true);
-    const toastId = toast.loading('正在打包您的家庭数据...');
+    const toastId = toast.loading(t('parent.system_export_backup_loading', '正在打包您的家庭数据...'));
     try {
       // 检查是否在 Telegram 环境内
       const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -240,7 +240,7 @@ export default function SettingsView() {
         const res = await service.post<any, ApiResponse>('/system/export-telegram', { tgUserId: tgUser.id });
         if (res.success) {
           toast.dismiss(toastId);
-          appToast.success('✅ 备份文件已发送到您的 Telegram 聊天中！请关闭应用去对话框查看。', { duration: 5000 });
+          appToast.success(t('parent.system_export_backup_to_telegram_success', '✅ 备份文件已发送到您的 Telegram 聊天中！请关闭应用去对话框查看。'), { duration: 5000 });
         }
       } else {
         // 🌐 普通浏览器环境：正常打包并触发浏览器 ZIP 下载
@@ -261,12 +261,12 @@ export default function SettingsView() {
           window.URL.revokeObjectURL(url);
           
           toast.dismiss(toastId);
-          appToast.success('备份已成功下载！');
+          appToast.success(t('parent.system_export_backup_success', '备份已成功下载！'));
         }
       }
     } catch (e) {
       toast.dismiss(toastId);
-      appToast.error('导出失败，请重试');
+      appToast.error(t('parent.system_export_backup_failed', '导出失败，请重试'));
     } finally {
       setIsProcessingBackup(false);
     }
@@ -286,7 +286,7 @@ export default function SettingsView() {
   const executeRestore = async () => {
     if (!importFile) return;
     setIsProcessingBackup(true);
-    const toastId = toast.loading('正在解析并恢复数据...');
+    const toastId = toast.loading(t('parent.system_import_backup_loading', '正在解析并恢复数据...'));
     
     try {
       let backupData;
@@ -297,31 +297,31 @@ export default function SettingsView() {
         const zip = new JSZip();
         const unzipped = await zip.loadAsync(importFile);
         const jsonFiles = Object.keys(unzipped.files).filter(name => name.endsWith('.json'));
-        if (jsonFiles.length === 0) throw new Error("ZIP 文件中未找到 .json 备份文件！");
+        if (jsonFiles.length === 0) throw new Error(t('parent.system_import_backup_invalid_none_json', 'ZIP 文件中未找到 .json 备份文件！'));
         const jsonStr = await unzipped.file(jsonFiles[0])?.async('string');
         backupData = JSON.parse(jsonStr!);
       } else if (fileName.endsWith('.json')) {
         const text = await importFile.text();
         backupData = JSON.parse(text);
       } else {
-        throw new Error("不支持的文件格式，请上传 .zip 或 .json 文件");
+        throw new Error(t('parent.system_import_backup_invalid', '不支持的文件格式，请上传 .zip 或 .json 文件'));
       }
 
       // 验证 JSON 结构
       if (!backupData || !backupData.data) {
-        throw new Error("文件内容格式不正确或已损坏");
+        throw new Error(t('parent.system_import_backup_invalid_json_fail', '文件内容格式不正确或已损坏'));
       }
 
       // 提交到后端进行事务覆盖
       const res = await service.post<any, ApiResponse>('/system/import', { backupData });
       if (res.success) {
         toast.dismiss(toastId);
-        appToast.success('数据恢复成功！系统即将刷新...');
+        appToast.success(t('parent.system_import_backup_success', '数据恢复成功！系统即将刷新...'));
         setTimeout(() => window.location.reload(), 1500); 
       }
     } catch (e: any) {
       toast.dismiss(toastId);
-      appToast.error(e.message || '恢复失败，文件可能已损坏');
+      appToast.error(e.message || t('parent.system_import_backup_failed', '恢复失败，文件可能已损坏'));
     } finally {
       setIsProcessingBackup(false);
       setRestoreWarningOpen(false);
@@ -330,122 +330,136 @@ export default function SettingsView() {
   };
 
 
-  if (loading && !config) return <div className="p-10 text-center text-gray-500 dark:text-gray-400 font-bold transition-colors">加载中...</div>;
+  if (loading && !config) return <div className="p-10 text-center text-gray-500 dark:text-gray-400 font-bold transition-colors">{ t('common.loading', '加载中...') }</div>;
 
   return (
     <div className="settings-container p-4 pb-32 pt-8 min-h-full bg-gray-50 dark:bg-gray-900 overscroll-none transition-colors duration-300">
       
       {/* 1. 个人资料 */}
-      <Section title="个人资料" icon={<UserCircle size={22} />} isOpen={openSection === 'profile'} onToggle={() => setOpenSection(openSection === 'profile' ? '' : 'profile' as any)}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-5xl bg-gray-50 dark:bg-gray-700 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-600 transition-colors">{displayAvatar}</span>
-            <div>
-              <p className="font-black text-gray-800 dark:text-gray-100 text-xl transition-colors">{displayNickName}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-gray-500 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md transition-colors">ID: {userProfile?.id || tgUser?.id || '未知'}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors"><Globe size={12}/> {currentLangLabel}</span>
+      <Section title={ t('parent.profile_personal_title', '个人资料') } icon={<UserCircle size={22} />} isOpen={openSection === 'profile'} onToggle={() => setOpenSection(openSection === 'profile' ? '' : 'profile' as any)}>
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-5xl bg-gray-50 dark:bg-gray-700 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-600 transition-colors">{displayAvatar}</span>
+              <div>
+                <p className="font-black text-gray-800 dark:text-gray-100 text-xl transition-colors">{displayNickName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md transition-colors">ID: {userProfile?.id || tgUser?.id || t('common.unknown', '未知')}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors"><Globe size={12}/> {currentLangLabel}</span>
+                </div>
               </div>
             </div>
           </div>
-          <button onClick={() => setIsProfileDrawerOpen(true)} className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl active:scale-95 transition-all"><Edit3 size={20} /></button>
+          <button onClick={() => setIsProfileDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"><Edit3 size={18}/> {t('parent.profile_edit_btn', '编辑个人资料')}</button>
         </div>
-      </Section>
+     </Section>
 
-      <BottomDrawer isOpen={isProfileDrawerOpen} onClose={() => setIsProfileDrawerOpen(false)} title="编辑个人资料" footer={<button onClick={handleSaveProfile} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存资料</button>}>
+      <BottomDrawer isOpen={isProfileDrawerOpen} onClose={() => setIsProfileDrawerOpen(false)} title={ t('parent.profile_edit_title', '编辑个人资料') } footer={<button onClick={handleSaveProfile} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">{t('parent.profile_save_btn', '保存资料')}</button>}>
         <div className="space-y-4">
           <div className="flex gap-3">
             <div className="w-24">
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">头像</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('parent.profile_avatar_label', '头像')}</label>
               <input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={profileData.avatar} onChange={e => setProfileData({...profileData, avatar: e.target.value})} maxLength={2} />
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">我的昵称</label>
-              <input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={profileData.nick_name} onChange={e => setProfileData({...profileData, nick_name: e.target.value})} placeholder="输入你在家庭中的称呼" />
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('parent.profile_nick_name_label', '我的昵称')}</label>
+              <input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={profileData.nick_name} onChange={e => setProfileData({...profileData, nick_name: e.target.value})} placeholder={t('parent.profile_nick_name_placeholder', '输入你在家庭中的称呼')} />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Globe size={16}/> 语言设置 (Language)</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Globe size={16}/> {t('parent.profile_locale_label', '语言设置 (Language)')}</label>
             <select className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-colors" value={profileData.locale} onChange={e => setProfileData({...profileData, locale: e.target.value})}>
               {SUPPORTED_LANGUAGES.map((lang) => (<option key={lang.code} value={lang.code}>{lang.label} ({lang.code})</option>))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Sun size={16}/> 外观主题 (Theme)</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Sun size={16}/> {t('parent.profile_theme_label', '外观主题 (Theme)')}</label>
             <select className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-colors" value={themePref} onChange={e => handleThemeChange(e.target.value)}>
-              <option value="auto">自动 (跟随系统或 Telegram)</option>
-              <option value="light">浅色模式 (Light)</option>
-              <option value="dark">深色模式 (Dark)</option>
+              <option value="auto">{t('parent.profile_theme_auto', '自动 (跟随系统或 Telegram)')}</option>
+              <option value="light">{t('parent.profile_theme_light', '浅色模式 (Light)')}</option>
+              <option value="dark">{t('parent.profile_theme_dark', '深色模式 (Dark)')}</option>
             </select>
           </div>
         </div>
       </BottomDrawer>
 
       {/* 2. 基础设置 */}
-      <Section title="基础设置" icon={<Settings size={22} />} isOpen={openSection === 'basic'} onToggle={() => setOpenSection(openSection === 'basic' ? '' : 'basic' as any)}>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors"><span className="text-gray-500 dark:text-gray-400 font-medium">家庭名称</span><span className="font-bold text-gray-800 dark:text-gray-100 text-lg">{config?.avatar} {config?.name}</span></div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors"><span className="text-gray-500 dark:text-gray-400 font-medium">代币单位</span><span className="font-bold text-gray-800 dark:text-gray-100 text-lg">{config?.point_emoji} {config?.point_name}</span></div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors"><span className="text-gray-500 dark:text-gray-400 font-medium">所在区/时区</span><span className="font-bold text-gray-800 dark:text-gray-100">{config?.timezone || 'Asia/Shanghai'}</span></div>
-          <div className="flex justify-between items-center py-2"><span className="text-gray-500 dark:text-gray-400 font-medium">我的角色</span><span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-black uppercase transition-colors">{myRole}</span></div>
-          {isAdmin && <button onClick={() => setIsFamilyDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"><Edit3 size={18}/> 编辑基础信息</button>}
+      <Section title={t('parent.profile_family_basic_settings', '基础设置')} icon={<Settings size={22} />} isOpen={openSection === 'basic'} onToggle={() => setOpenSection(openSection === 'basic' ? '' : 'basic' as any)}>
+        <div className="space-y-4 pt-4">
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">{t('parent.profile_family_name_label', '家庭名称')}</span>
+            <span className="font-bold text-gray-800 dark:text-gray-100 text-lg">{config?.avatar} {config?.name}</span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">{t('parent.profile_family_point_unit_label', '代币单位')}</span>
+            <span className="font-bold text-gray-800 dark:text-gray-100 text-lg">{config?.point_emoji} {config?.point_name}</span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">{t('parent.profile_family_timezone_label', '所在区/时区')}</span>
+            <span className="font-bold text-gray-800 dark:text-gray-100">{config?.timezone || 'Asia/Shanghai'}</span>
+          </div>
+          <div className="flex justify-between items-center py-2">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">{t('parent.profile_family_my_role_label', '我的角色')}</span>
+            <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-black uppercase transition-colors">{myRole}</span>
+          </div>
+          {isAdmin && <button onClick={() => setIsFamilyDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"><Edit3 size={18}/> {t('parent.profile_family_edit_basic_info_btn', '编辑基础信息')}</button>}
         </div>
       </Section>
 
-      <BottomDrawer isOpen={isFamilyDrawerOpen} onClose={() => setIsFamilyDrawerOpen(false)} title="编辑家庭基础信息" footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存设置</button>}>
+      <BottomDrawer isOpen={isFamilyDrawerOpen} onClose={() => setIsFamilyDrawerOpen(false)} title={t('parent.profile_family_edit_basic_info_title', '编辑家庭基础信息')} footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">{t('parent.profile_family_save_btn', '保存设置')}</button>}>
         <div className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">家庭图标</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.avatar} onChange={e => setEditFamilyData({...editFamilyData, avatar: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">家庭名称</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.name} onChange={e => setEditFamilyData({...editFamilyData, name: e.target.value})} /></div>
+            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('parent.profile_family_avatar_label', '家庭图标')}</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.avatar} onChange={e => setEditFamilyData({...editFamilyData, avatar: e.target.value})} maxLength={2} /></div>
+            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('parent.profile_family_name_label', '家庭名称')}</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.name} onChange={e => setEditFamilyData({...editFamilyData, name: e.target.value})} /></div>
           </div>
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">代币图标</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.point_emoji} onChange={e => setEditFamilyData({...editFamilyData, point_emoji: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">代币名称</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.point_name} onChange={e => setEditFamilyData({...editFamilyData, point_name: e.target.value})} /></div>
+            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('parent.profile_family_point_emoji_label', '代币图标')}</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.point_emoji} onChange={e => setEditFamilyData({...editFamilyData, point_emoji: e.target.value})} maxLength={2} /></div>
+            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('parent.profile_family_point_name_label', '代币名称')}</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.point_name} onChange={e => setEditFamilyData({...editFamilyData, point_name: e.target.value})} /></div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><MapPin size={16}/> 所在区/时区 (Timezone)</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><MapPin size={16}/> {t('parent.profile_family_timezone_label', '所在区/时区')} (Timezone)</label>
             <select className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-colors" value={editFamilyData.timezone} onChange={e => setEditFamilyData({...editFamilyData, timezone: e.target.value})}>
-              <option value="Asia/Shanghai">中国标准时间 (Asia/Shanghai)</option>
-              <option value="Asia/Hong_Kong">香港时间 (Asia/Hong_Kong)</option>
-              <option value="Asia/Taipei">台北时间 (Asia/Taipei)</option>
-              <option value="America/New_York">美西时间 (America/New_York)</option>
-              <option value="America/Los_Angeles">美东时间 (America/Los_Angeles)</option>
-              <option value="Europe/London">伦敦时间 (Europe/London)</option>
+              <option value="Asia/Shanghai">{t('common.timezone_asia_shanghai', '中国标准时间 (Asia/Shanghai)')}</option>
+              <option value="Asia/Hong_Kong">{t('common.timezone_asia_hong_kong', '香港时间 (Asia/Hong_Kong)')}</option>
+              <option value="Asia/Taipei">{t('common.timezone_asia_taipei', '台北时间 (Asia/Taipei)')}</option>
+              <option value="America/New_York">{t('common.timezone_america_new_york', '美西时间 (America/New_York)')}</option>
+              <option value="America/Los_Angeles">{t('common.timezone_america_los_angeles', '美东时间 (America/Los_Angeles)')}</option>
+              <option value="Europe/London">{t('common.timezone_europe_london', '伦敦时间 (Europe/London)')}</option>
             </select>
           </div>
         </div>
       </BottomDrawer>
 
       {/* 2.5 自动推送设置 */}
-      <Section title="自动推送设置" icon={<Bell size={22} />} isOpen={openSection === 'notifications'} onToggle={() => setOpenSection(openSection === 'notifications' ? '' : 'notifications' as any)}>
-        <div className="space-y-4">
+      <Section title={ t('parent.profile_family_notifications_title', '自动推送设置') } icon={<Bell size={22} />} isOpen={openSection === 'notifications'} onToggle={() => setOpenSection(openSection === 'notifications' ? '' : 'notifications' as any)}>
+        <div className="space-y-4 pt-4">
           <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
-            <span className="text-gray-500 dark:text-gray-400 font-medium">推送状态</span>
+            <span className="text-gray-500 dark:text-gray-400 font-medium">{t('parent.profile_family_notifications_status', '推送状态')}</span>
             <span className={`font-bold ${config?.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
-              {config?.push_enabled ? '已开启' : '已关闭'}
+              {config?.push_enabled ? t('common.truned_on', '已开启') : t('common.truned_off', '已关闭')}
             </span>
           </div>
           {config?.push_enabled && (
             <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-gray-700/50 transition-colors">
-              <span className="text-gray-500 dark:text-gray-400 font-medium">推送时间</span>
+              <span className="text-gray-500 dark:text-gray-400 font-medium">{t('parent.profile_family_notifications_time', '推送时间')}</span>
               <span className="font-bold text-gray-800 dark:text-gray-100">{config?.push_time || '20:00'}</span>
             </div>
           )}
           {isAdmin && (
             <button onClick={() => setIsPushDrawerOpen(true)} className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors">
-              <Edit3 size={18}/> 配置推送规则
+              <Edit3 size={18}/> {t('parent.profile_family_notifications_configure', '配置推送规则')}
             </button>
           )}
         </div>
       </Section>
 
-      <BottomDrawer isOpen={isPushDrawerOpen} onClose={() => setIsPushDrawerOpen(false)} title="Telegram 推送设置" footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存设置</button>}>
+      <BottomDrawer isOpen={isPushDrawerOpen} onClose={() => setIsPushDrawerOpen(false)} title={t('parent.profile_family_edit_notifications_title', 'Telegram 推送设置')} footer={<button onClick={handleSaveFamily} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">{ t('parent.profile_family_save_notifications_btn', '保存设置') }</button>}>
         <div className="space-y-6">
           {/* 总开关 */}
           <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 transition-colors">
             <div>
-              <p className="font-bold text-gray-800 dark:text-gray-100">每日定时播报</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">在绑定的群组内自动发送简报</p>
+              <p className="font-bold text-gray-800 dark:text-gray-100">{t('parent.profile_family_daily_brief', '每日定时播报')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('parent.profile_family_daily_brief_desc', '在绑定的群组内自动发送简报')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer" checked={editFamilyData.push_enabled} onChange={(e) => setEditFamilyData({...editFamilyData, push_enabled: e.target.checked})} />
@@ -457,17 +471,17 @@ export default function SettingsView() {
           {editFamilyData.push_enabled && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1"><Clock size={16}/> 推送时间</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1"><Clock size={16}/> {t('parent.profile_family_notifications_time', '推送时间')}</label>
                 <input type="time" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={editFamilyData.push_time} onChange={e => setEditFamilyData({...editFamilyData, push_time: e.target.value})} />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1"><CheckSquare size={16}/> 推送内容</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1"><CheckSquare size={16}/> {t('parent.profile_family_notifications_info', '推送内容')}</label>
                 <div className="space-y-3">
                   {[
-                    { id: 'summary', label: '每日日报', desc: '汇总今日得分、打卡情况与系统大盘' },
-                    { id: 'pending', label: '待办提醒', desc: '如果有待审批的任务，将一并发出提醒' },
-                    { id: 'expiring', label: '目标进度', desc: '附带展示孩子们当前正在进行的心愿进度' }
+                    { id: 'summary', label: t('parent.profile_family_notifications_summary', '每日日报'), desc: t('parent.profile_family_notifications_summary_desc', '汇总今日得分、打卡情况与系统大盘') },
+                    { id: 'pending', label: t('parent.profile_family_notifications_pending', '待办提醒'), desc: t('parent.profile_family_notifications_pending_desc', '如果有待审批的任务，将一并发出提醒') },
+                    { id: 'expiring', label: t('parent.profile_family_notifications_expiring', '目标进度'), desc: t('parent.profile_family_notifications_expiring_desc', '附带展示孩子们当前正在进行的心愿进度') }
                   ].map(type => (
                     <div key={type.id} onClick={() => handleTogglePushOption(type.id)} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between cursor-pointer ${editFamilyData.push_options.includes(type.id) ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-100 dark:border-gray-600 bg-white dark:bg-gray-700'}`}>
                       <div>
@@ -487,8 +501,8 @@ export default function SettingsView() {
       </BottomDrawer>
 
       {/* 3. 商品分类 */}
-      <Section title="商品分类" icon={<Tags size={22} />} isOpen={openSection === 'categories'} onToggle={() => setOpenSection(openSection === 'categories' ? '' : 'categories' as any)}>
-        <div className="pt-2 space-y-4">
+      <Section title={ t('parent.category_manage_title', '商品分类') } icon={<Tags size={22} />} isOpen={openSection === 'categories'} onToggle={() => setOpenSection(openSection === 'categories' ? '' : 'categories' as any)}>
+        <div className="pt-4 space-y-4">
           {categories.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {categories.map(cat => (
@@ -500,13 +514,13 @@ export default function SettingsView() {
             </div>
           ) : (
             <div className="text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 transition-colors">
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">暂无分类数据，请在管理台中添加</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{ t('parent.category_empty', '暂无分类数据，请在管理台中添加') }</p>
             </div>
           )}
           <div onClick={() => setIsCategoryDrawerOpen(true)} className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-[0.98] transition-all p-4 rounded-2xl cursor-pointer">
             <div>
-              <p className="font-bold text-blue-800 dark:text-blue-300 text-base transition-colors">打开分类管理台</p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium transition-colors">新增、修改或删除商品分类</p>
+              <p className="font-bold text-blue-800 dark:text-blue-300 text-base transition-colors">{ t('parent.category_open_manage', '打开商品分类管理台') }</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium transition-colors">{ t('parent.category_open_manage_description', '新增、修改或删除商品分类') }</p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm transition-colors"><ChevronRight className="text-blue-500 dark:text-blue-400" size={20} /></div>
           </div>
@@ -514,8 +528,8 @@ export default function SettingsView() {
       </Section>
 
       {/* 4. 孩子管理 */}
-      <Section title="孩子管理" icon={<Baby size={22} />} isOpen={openSection === 'children'} onToggle={() => setOpenSection(openSection === 'children' ? '' : 'children' as any)}>
-        <div className="space-y-3 pt-2">
+      <Section title={ t('parent.profile_children_manage_title', '孩子管理') } icon={<Baby size={22} />} isOpen={openSection === 'children'} onToggle={() => setOpenSection(openSection === 'children' ? '' : 'children' as any)}>
+        <div className="space-y-3 pt-4">
           {childrenList.map((child: Child | any) => (
             <div key={child.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 shadow-sm relative transition-colors">
               <div className="flex items-center gap-4">
@@ -528,23 +542,23 @@ export default function SettingsView() {
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                {isAdmin && <button onClick={() => { setChildForm({ id: child.id, name: child.name, avatar: child.avatar, birthday: child.birthday || '' }); setIsChildDrawerOpen(true); }} className="flex-1 py-2 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors"><Edit3 size={14}/> 编辑</button>}
-                {isAdmin && <button onClick={() => handleGenerateCode('child', child.id)} className="flex-1 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors"><Smartphone size={14}/> 绑定码</button>}
+                {isAdmin && <button onClick={() => { setChildForm({ id: child.id, name: child.name, avatar: child.avatar, birthday: child.birthday || '' }); setIsChildDrawerOpen(true); }} className="flex-1 py-2 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors"><Edit3 size={14}/> {t('common.edit', '编辑')}</button>}
+                {isAdmin && <button onClick={() => handleGenerateCode('child', child.id)} className="flex-1 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors"><Smartphone size={14}/> {t('common.binding_code', '绑定码')}</button>}
               </div>
             </div>
           ))}
-          {isAdmin && <button onClick={() => { setChildForm({ id: '', name: '', avatar: '👦', birthday: '' }); setIsChildDrawerOpen(true); }} className="w-full flex justify-center items-center gap-2 py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-all"><Plus size={18} /> 添加新孩子</button>}
+          {isAdmin && <button onClick={() => { setChildForm({ id: '', name: '', avatar: '👦', birthday: '' }); setIsChildDrawerOpen(true); }} className="w-full flex justify-center items-center gap-2 py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-all"><Plus size={18} /> {t('parent.profile_children_add_new_child', '添加新孩子')}</button>}
         </div>
       </Section>
 
-      <BottomDrawer isOpen={isChildDrawerOpen} onClose={() => setIsChildDrawerOpen(false)} title={childForm.id ? "编辑孩子资料" : "添加新孩子"} footer={<button onClick={handleSaveChild} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">保存资料</button>}>
+      <BottomDrawer isOpen={isChildDrawerOpen} onClose={() => setIsChildDrawerOpen(false)} title={childForm.id ?  t('parent.profile_children_edit_child', '编辑孩子资料') : t('parent.profile_children_add_new_child', '添加新孩子') } footer={<button onClick={handleSaveChild} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-transform">{ t('common.save', '保存资料') }</button>}>
         <div className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">头像</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.avatar} onChange={e => setChildForm({...childForm, avatar: e.target.value})} maxLength={2} /></div>
-            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">孩子昵称/小名</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.name} onChange={e => setChildForm({...childForm, name: e.target.value})} placeholder="输入称呼" /></div>
+            <div className="w-24"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{ t('parent.profile_children_avatar_label', '头像') }</label><input type="text" className="w-full h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-center text-3xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.avatar} onChange={e => setChildForm({...childForm, avatar: e.target.value})} maxLength={2} /></div>
+            <div className="flex-1"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{ t('parent.profile_children_name_label', '孩子昵称/小名') }</label><input type="text" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.name} onChange={e => setChildForm({...childForm, name: e.target.value})} placeholder={t('parent.profile_children_name_placeholder', '输入称呼')} /></div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Calendar size={16}/> 生日 (可选)</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Calendar size={16}/> {t('parent.profile_children_birthday_label', '生日 (可选)')}</label>
             <input type="date" className="w-full h-14 px-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" value={childForm.birthday} onChange={e => setChildForm({...childForm, birthday: e.target.value})} />
           </div>
         </div>

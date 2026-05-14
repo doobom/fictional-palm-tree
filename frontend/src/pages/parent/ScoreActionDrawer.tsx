@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore, Child } from '../../store';
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
+import { X } from 'lucide-react';
 
 export interface ScoreActionDrawerProps {
   isOpen: boolean;
@@ -59,16 +60,16 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
   const handleSubmit = async () => {
     if (!child) return;
     const numPoints = Number(points);
-    if (!numPoints || numPoints <= 0) return appToast.warn('请输入有效的分数');
+    if (!numPoints || numPoints <= 0) return appToast.warn( t('parent.score_action_invalid_points', '请输入有效的分数'));
 
     setLoading(true);
     try {
       const finalPoints = actionType === 'add' ? numPoints : -Math.abs(numPoints);
       const res = await service.post<any, ApiResponse>('/scores/adjust', {
-        childId: child.id, points: finalPoints, remark: remark || (actionType === 'add' ? '手动奖励' : '手动扣除'), ruleId: ruleId
+        childId: child.id, points: finalPoints, remark: remark || t('parent.score_manual_type', { type: actionType === 'add' ? t('parent.score_adjust_points_type_add', '奖励') : t('parent.score_adjust_points_type_deduction', '扣除') }), ruleId: ruleId
       });
       if (res.success) {
-        appToast.success(`已为 ${child.name} ${actionType === 'add' ? '增加' : '扣除'} ${numPoints} 分`);
+        appToast.success(t('parent.score_adjust_points_success', `已为 ${child.name} ${actionType === 'add' ? '增加' : '扣除'} ${numPoints} 分`, { type: actionType === 'add' ? t('parent.score_adjust_points_type_add', '奖励') : t('parent.score_adjust_points_type_deduction', '扣除'), points: numPoints, emoji: currentFamily?.point_emoji || '⭐', name: child.name }));
         setPoints('');
         setRemark('');
         setRuleId(null);
@@ -95,23 +96,23 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
         </div>
 
         <div className="px-5 pb-4 relative flex items-center gap-4 transition-colors">
-          <button onClick={onClose} className="absolute right-5 top-0 w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 font-bold transition-colors">✕</button>
+          <button onClick={onClose} className="absolute right-5 top-0 w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 font-bold transition-colors"><X size={18} /></button>
           <span className="text-4xl bg-gray-100 dark:bg-gray-800 w-14 h-14 flex items-center justify-center rounded-2xl transition-colors">{avatar}</span>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 transition-colors">调整 {name}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors">余额: <span className="font-semibold text-gray-900 dark:text-gray-100">{balance}</span> {currentFamily?.point_name}</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 transition-colors">{ t('parent.score_adjust_points_title', { name: name }) }</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors">{ t('parent.score_balance', '余额:') } <span className="font-semibold text-gray-900 dark:text-gray-100">{balance}</span> {currentFamily?.point_name}</p>
           </div>
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-5">
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl transition-colors">
-            <button onClick={() => { setActionType('add'); setPoints(''); setRemark(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'add' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>奖励</button>
-            <button onClick={() => { setActionType('deduct'); setPoints(''); setRemark(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'deduct' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>扣除</button>
+            <button onClick={() => { setActionType('add'); setPoints(''); setRemark(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'add' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.score_adjust_points_type_add', '奖励') }</button>
+            <button onClick={() => { setActionType('deduct'); setPoints(''); setRemark(''); }} className={`flex-1 py-2.5 font-semibold rounded-lg transition-colors ${actionType === 'deduct' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>{ t('parent.score_adjust_points_type_deduction', '扣除') }</button>
           </div>
 
           {displayRules.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">选择家庭规则</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">{ t('parent.score_select_rule', '选择家庭规则') }</label>
               <div className="flex gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                 {displayRules.map(rule => {
                   // 🌟 计算逻辑
@@ -141,7 +142,7 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
                         {/* 🌟 显示剩余次数标签 */}
                         {limit > 0 && (
                           <span className={`text-[10px] font-black ${isExceeded ? 'text-red-500' : 'text-blue-500'}`}>
-                            {isExceeded ? '已达上限' : `剩 ${remaining} 次`}
+                            {isExceeded ? t('parent.score_daily_limit_exceeded', '已达上限') : t('parent.score_daily_limit_remaining', '剩 {remaining} 次', { remaining: remaining })}
                           </span>
                         )}
                       </div>
@@ -153,7 +154,7 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">快捷选择</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">{ t('parent.score_quick_select', '快捷选择') }</label>
             <div className="flex gap-2">
               {[1, 2, 5, 10].map(val => (
                 <button key={val} onClick={() => setPoints(val)} className={`flex-1 py-3 rounded-xl font-semibold transition-colors ${points === val ? (actionType === 'add' ? 'bg-blue-500 dark:bg-blue-600 text-white' : 'bg-red-500 dark:bg-red-600 text-white') : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{val}</button>
@@ -162,20 +163,20 @@ export default function ScoreActionDrawer({ isOpen, onClose, onSuccess, child, i
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">输入额度与备注</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">{ t('parent.score_input_amount_remark', '输入额度与备注') }</label>
             <div className="space-y-3">
               <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 p-1 pl-4 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white dark:focus-within:bg-gray-700 transition-colors">
                 <span className="text-xl">{currentFamily?.point_emoji || '🪙'}</span>
-                <input type="number" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500" placeholder="自定义数值" />
+                <input type="number" value={points} onChange={(e) => setPoints(parseInt(e.target.value) || '')} className="flex-1 bg-transparent py-3 font-semibold text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500" placeholder={t('parent.score_input_amount_placeholder', '自定义数值')} />
               </div>
-              <input type="text" value={remark} onChange={(e) => { setRemark(e.target.value); setRuleId(null); }} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder="原因备注 (选填)" />
+              <input type="text" value={remark} onChange={(e) => { setRemark(e.target.value); setRuleId(null); }} className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" placeholder={t('parent.score_input_remark_placeholder', '原因备注 (选填)')} />
             </div>
           </div>
         </div>
 
         <div className="p-5 pt-2 bg-white dark:bg-gray-900 transition-colors" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 20px)' }}>
           <button onClick={handleSubmit} disabled={loading || !points || Number(points) <= 0} className={`w-full py-3.5 rounded-xl font-semibold text-white text-lg transition-colors ${actionType === 'add' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'} disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600`}>
-            {loading ? '处理中...' : `确认${actionType === 'add' ? '发放' : '扣除'}`}
+            {loading ? t('parent.score_adjust_points_processing', '处理中...') : t('parent.score_adjust_points_btn', { type: actionType === 'add' ? t('parent.score_adjust_points_type_add') : t('parent.score_adjust_points_type_deduction') })}
           </button>
         </div>
       </div>

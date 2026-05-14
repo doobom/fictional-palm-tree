@@ -117,7 +117,7 @@ export default function BatchActionDrawer({ isOpen, onClose, prefillRule }: Batc
 
         <div className="p-5 pt-2 bg-white dark:bg-gray-900 transition-colors" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 20px)' }}>
           <button onClick={handleSubmit} disabled={loading || !points || Number(points) <= 0 || selectedChildIds.size === 0} className={`w-full py-3.5 rounded-xl font-semibold text-white text-lg transition-colors ${actionType === 'add' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'} disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-600`}>
-            {loading ? t('parent.score_adjust_points_loading') : t('parent.score_batch_adjust_points_btn', { type: actionType === 'add' ? t('parent.score_adjust_points_type_add') : t('parent.score_adjust_points_type_deduction') }) }
+            {loading ? t('parent.score_adjust_points_processing') : t('parent.score_batch_adjust_points_btn', { type: actionType === 'add' ? t('parent.score_adjust_points_type_add') : t('parent.score_adjust_points_type_deduction') }) }
           </button>
         </div>
       </div>

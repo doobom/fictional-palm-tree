@@ -129,7 +129,7 @@ export default function GoalManagerDrawer({ isOpen, onClose, child, onSuccess }:
           {loading && goals.length === 0 ? (
             <div className="py-10 flex flex-col items-center justify-center text-gray-400 gap-2">
               <Loader2 className="animate-spin" />
-              <span className="text-sm font-bold">{ t('parent.goals_loading') }</span>
+              <span className="text-sm font-bold">{ t('parent.goal_loading') }</span>
             </div>
           ) : goals.map(goal => {
             const percent = Math.min(100, Math.floor((goal.current_points / goal.target_points) * 100));

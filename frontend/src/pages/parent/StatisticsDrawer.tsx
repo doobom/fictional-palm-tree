@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, Calendar } from 'lucide-react';
 import ScoreTrendChart from '../../components/ScoreTrendChart';
+import { useTranslation } from 'react-i18next';
 
 interface StatisticsDrawerProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface StatisticsDrawerProps {
 
 export default function StatisticsDrawer({ isOpen, onClose, child }: StatisticsDrawerProps) {
   const [days, setDays] = useState(7);
+  const { t } = useTranslation();
 
   if (!isOpen || !child) return null;
 
@@ -28,8 +30,8 @@ export default function StatisticsDrawer({ isOpen, onClose, child }: StatisticsD
           <div className="flex items-center gap-3">
             <span className="text-2xl">{child.avatar}</span>
             <div>
-              <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">{child.name}的成长曲线</h3>
-              <p className="text-xs text-gray-500">记录每一分的变化</p>
+              <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">{t('parent.stats_child_growth', '{name}的成长曲线', { name: child.name })}</h3>
+              <p className="text-xs text-gray-500">{t('parent.stats_record_changes', '记录每一分的变化')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500">
@@ -48,7 +50,7 @@ export default function StatisticsDrawer({ isOpen, onClose, child }: StatisticsD
                   days === d ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-500'
                 }`}
               >
-                {d}天
+                {t('parent.stats_days', '{{d}}天', { d })}
               </button>
             ))}
           </div>
@@ -61,11 +63,11 @@ export default function StatisticsDrawer({ isOpen, onClose, child }: StatisticsD
           {/* 额外的数据总结卡片 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl">
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">本周表现</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">{ t('parent.stats_weekly_performance', '本周表现') }</p>
               <p className="text-xl font-black text-blue-700 dark:text-blue-300">稳定增长</p>
             </div>
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-2xl">
-              <p className="text-xs text-green-600 dark:text-green-400 font-bold mb-1">最高记录</p>
+              <p className="text-xs text-green-600 dark:text-green-400 font-bold mb-1">{ t('parent.stats_highest_record', '最高记录') }</p>
               <p className="text-xl font-black text-green-700 dark:text-green-300">+25 Pts</p>
             </div>
           </div>
