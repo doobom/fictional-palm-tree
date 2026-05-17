@@ -339,7 +339,7 @@
     "profile_invite_modal_validity": "有效期 7 天",
     "profile_invite_modal_copy_code": "复制凭证码",
     "profile_invite_modal_copy_link": "复制完整链接发送",
-    "profile_invite_modal_link_detail": "【FamilyPoints】${inviteModal.title}\n凭证码：${inviteModal.code}\n快速链接：${inviteModal.link}",
+    "profile_invite_modal_link_detail": "【Family Points】{{title}}\n凭证码：{{code}}\n快速链接：{{link}}\n有效期：7 天\n\n请在应用内使用凭证码加入家庭。",
 
     "system_feedback_text_required": "请输入反馈内容哦",
     "system_feedback_sent_success": "感谢反馈！管理员已收到您的消息。",
@@ -357,7 +357,7 @@
     "system_import_backup_success": "数据恢复成功！系统即将刷新...",
     "system_import_backup_failed": "恢复失败，文件可能已损坏！",
     "system_backup_and_import_title": "家庭数据备份 & 恢复",
-    "system_backup_desc": "您的数据完全掌握在自己手中",
+    "system_backup_desc": "您的数据完全掌握在自己手中。",
     "system_backup_desc_detail": "所有积分流水、孩子资料、心愿任务均可随时一键打包为 ZIP 格式下载到本地保存。",
     "system_export_backup_btn": "导出备份",
     "system_import_backup_btn": "上传恢复",
@@ -380,7 +380,11 @@
     "store_desc": "努力赚取金币，兑换你喜欢的礼物吧！",
     "stock_left": "还剩 {{stock}} 个",
     "stock_infinite": "不限量",
-    "empty_store": "商店里还没有上架奖品呢"
+    "empty_store": "商店里还没有上架奖品呢",
+
+    "achievements_loading": "正在加载勋章墙...",
+    "achievements_title": "荣誉陈列室",
+    "achievements_unlocked_status": "已点亮 {{unlockedCount}} / {{length}} 个徽章"
   },
   "api": {
     "ERR_UNAUTHORIZED": "登录已失效，请重新登录",

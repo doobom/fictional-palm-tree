@@ -582,7 +582,7 @@ export default function SettingsView() {
 
       {/* 6. 数据安全与备份 */}
       <Section title={ t('parent.system_backup_and_import_title', '数据安全与备份') } icon={<Database size={22} />} isOpen={openSection === 'backup'} onToggle={() => setOpenSection(openSection === 'backup' ? '' : 'backup' as any)}>
-        <div className="pt-2 space-y-4">
+        <div className="pt-4 space-y-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/50">
             <p className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">{ t('parent.system_backup_desc', '您的数据完全掌握在自己手中') }</p>
             <p className="text-xs text-blue-600 dark:text-blue-400">{ t('parent.system_backup_desc_detail', '所有积分流水、孩子资料、心愿任务均可随时一键打包为 ZIP 格式下载到本地保存。') }</p>
@@ -674,7 +674,7 @@ export default function SettingsView() {
               </div>
               <div className="space-y-3">
                 <button onClick={() => copyToClipboard(inviteModal.code)} className="w-full flex justify-center items-center gap-2 py-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold rounded-xl active:scale-95 transition-all"><Copy size={18} /> { t('parent.profile_invite_modal_copy_code', '复制凭证码') }</button>
-                <button onClick={() => copyToClipboard(t('parent.profile_invite_modal_link_detail', '【FamilyPoints】${inviteModal.title}\n凭证码：${inviteModal.code}\n快速链接：${inviteModal.link}', { ...inviteModal }))} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-transform">{ t('parent.profile_invite_modal_copy_link', '复制完整链接发送') }</button>
+                <button onClick={() => copyToClipboard(t('parent.profile_invite_modal_link_detail', '【FamilyPoints】{{title}}\n凭证码：{{code}}\n快速链接：{{link}}\n有效期：{{validity}}', { ...inviteModal }))} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none active:scale-95 transition-transform">{ t('parent.profile_invite_modal_copy_link', '复制完整链接发送') }</button>
               </div>
             </div>
           </div>

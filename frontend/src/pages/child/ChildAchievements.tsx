@@ -3,11 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { Trophy, Lock, Star } from 'lucide-react';
 import service, { ApiResponse } from '../../api/request';
 import { useUserStore } from '../../store';
+import { useTranslation } from 'react-i18next';
 
 export default function ChildAchievements() {
   const { user } = useUserStore();
   const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   // 如果你有 childId 的绑定逻辑，这里根据你的实际结构取值
   const childId = user?.id; 
@@ -30,7 +32,7 @@ export default function ChildAchievements() {
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
   if (loading) {
-    return <div className="p-10 text-center text-gray-400 font-bold animate-pulse">正在进入荣誉室...</div>;
+    return <div className="p-10 text-center text-gray-400 font-bold animate-pulse">{t('child.achievements_loading', '正在进入荣誉室...')}</div>;
   }
 
   return (
@@ -40,8 +42,8 @@ export default function ChildAchievements() {
       <div className="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl p-6 shadow-lg text-white relative overflow-hidden transition-all">
         <div className="relative z-10 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black mb-1 drop-shadow-sm">荣誉陈列室</h2>
-            <p className="font-bold opacity-90 drop-shadow-sm">已点亮 {unlockedCount} / {achievements.length} 个徽章</p>
+            <h2 className="text-2xl font-black mb-1 drop-shadow-sm">{ t('child.achievements_title', '荣誉陈列室') }</h2>
+            <p className="font-bold opacity-90 drop-shadow-sm">{ t('child.achievements_unlocked_status', '已点亮 {{unlockedCount}} / {{length}} 个徽章', { unlockedCount, length: achievements.length }) }</p>
           </div>
           <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner">
             <Trophy size={32} className="text-white drop-shadow-md" />

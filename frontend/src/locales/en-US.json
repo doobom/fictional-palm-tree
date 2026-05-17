@@ -339,7 +339,7 @@
     "profile_invite_modal_validity": "Valid for 7 days",
     "profile_invite_modal_copy_code": "Copy Code",
     "profile_invite_modal_copy_link": "Copy Full Link to Share",
-    "profile_invite_modal_link_detail": "【FamilyPoints】${inviteModal.title}\nCode: ${inviteModal.code}\nLink: ${inviteModal.link}",
+    "profile_invite_modal_link_detail": "【Family Points】{{title}}\nCode: {{code}}\nLink: {{link}}\nValid: 7 days\n\nPlease use the code to join the family within the app.",
 
     "system_feedback_text_required": "Please enter feedback content",
     "system_feedback_sent_success": "Thank you for your feedback! The administrator has received your message.",
@@ -357,7 +357,7 @@
     "system_import_backup_success": "Data restored successfully! The system will refresh shortly.",
     "system_import_backup_failed": "Failed to restore, the file may be corrupted!",
     "system_backup_and_import_title": "Family Data Backup & Restore",
-    "system_backup_desc": "Your data is completely under your control",
+    "system_backup_desc": "Your data is completely under your control.",
     "system_backup_desc_detail": "All points transactions, child profiles, and wish tasks can be packaged into a ZIP file for download and local storage at any time.",
     "system_export_backup_btn": "Export Backup",
     "system_import_backup_btn": "Upload Restore",
@@ -380,7 +380,11 @@
     "store_desc": "Earn coins to get your favorite rewards!",
     "stock_left": "{{stock}} left",
     "stock_infinite": "Unlimited",
-    "empty_store": "The store is empty right now."
+    "empty_store": "The store is empty right now.",
+
+    "achievements_loading": "Entering the Hall of Fame...",
+    "achievements_title": "Hall of Fame",
+    "achievements_unlocked_status": "{{unlockedCount}} / {{length}} Achievements Unlocked."
   },
   "api": {
     "ERR_UNAUTHORIZED": "Session expired, please login again",
