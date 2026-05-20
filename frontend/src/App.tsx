@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast'; // 🌟 核心修复 1：引入 Toast
 import { useUserStore } from './store';
 import service, { ApiResponse } from './api/request';
 import { appToast } from './utils/toast';
+import { useTranslation } from 'react-i18next';
 
 // 页面组件导入
 import ParentLayout from './pages/parent/ParentDashboard';
@@ -57,6 +58,8 @@ const App: React.FC = () => {
   
   // 🌟 核心修复 2：引入全局初始化状态，保证数据拉取完才渲染子页面
   const [isInitializing, setIsInitializing] = useState(true);
+
+  const { t } = useTranslation();
 
   // 1. 核心初始化：获取用户信息与家庭列表
   useEffect(() => {
@@ -133,7 +136,7 @@ const App: React.FC = () => {
             const { childId, goalName } = data.payload;
             // 🌟 触发专属提示。如果当前家长正在看这个孩子，可以直接弹窗
             // 或者简单点，弹一个全局 Toast，后续你甚至可以接入撒花特效
-            appToast.success(`🎉 惊喜！${goalName} 愿望已经攒满啦！快去兑换吧！`);
+            appToast.success( t('child.goal_completed', `🎉 惊喜！${goalName} 愿望已经攒满啦！快去兑换吧！`) );
             break;
           }
         }
@@ -158,7 +161,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-gray-500 font-medium">正在进入系统...</p>
+        <p className="mt-4 text-gray-500 font-medium">{ t('common.initializing', '正在进入系统...') }</p>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { X, Camera, Send, Loader2, Sparkles, CheckCircle2, Image as ImageIcon } 
 import service, { ApiResponse } from '../../api/request';
 import { appToast } from '../../utils/toast';
 import { useUserStore } from '../../store';
+import { useTranslation } from 'react-i18next';
 
 interface ChildSubmitTaskDrawerProps {
   isOpen: boolean;
@@ -13,9 +14,12 @@ interface ChildSubmitTaskDrawerProps {
 }
 
 export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: ChildSubmitTaskDrawerProps) {
-  const { user } = useUserStore();
+  const { user, currentFamilyId, families } = useUserStore();
   const [rules, setRules] = useState<any[]>([]);
-  
+  const { t } = useTranslation();
+
+  const currentFamily = families.find(f => f.id === currentFamilyId);
+
   // 表单状态
   const [mode, setMode] = useState<'rule' | 'free'>('rule');
   const [form, setForm] = useState({
@@ -79,7 +83,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
 
     // 限制图片大小为 5MB
     if (file.size > 5 * 1024 * 1024) {
-      return appToast.error('图片太大了，请压缩后再传哦 (最大 5MB)');
+      return appToast.error( t('child.task_error_image_too_large', '图片太大了，请压缩后再传哦 (最大 5MB)') );
     }
 
     setUploading(true);
@@ -93,10 +97,10 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
       });
       if (res.success) {
         setForm(prev => ({ ...prev, evidenceImage: res.data.url }));
-        appToast.success('图片上传成功！');
+        appToast.success( t('child.task_upload_success', '图片上传成功！') );
       }
     } catch (err) {
-      appToast.error('图片上传失败，请稍后再试');
+      appToast.error( t('child.task_upload_failed', '图片上传失败，请稍后再试') );
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = ''; // 清空 input 允许重复选同一张图
@@ -105,8 +109,8 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
 
   // 提交任务申请
   const handleSubmit = async () => {
-    if (!form.title.trim()) return appToast.error('请输入任务名称');
-    if (form.requestedPoints <= 0) return appToast.error('申请的分数必须大于 0');
+    if (!form.title.trim()) return appToast.error( t('child.task_error_title_required', '请输入任务名称') );
+    if (form.requestedPoints <= 0) return appToast.error( t('child.task_error_points_required', '申请的分数必须大于 0') );
 
     setSubmitting(true);
     try {
@@ -119,11 +123,11 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
         requestedPoints: form.requestedPoints
       });
       
-      appToast.success('提交成功！等待家长审核奖励 🎁');
+      appToast.success( t('child.task_submit_success', '提交成功！等待家长审核奖励 🎁') );
       if (onSuccess) onSuccess();
       onClose();
     } catch (e) {
-      appToast.error('提交失败');
+      appToast.error( t('child.task_submit_failed', '提交失败') );
     } finally {
       setSubmitting(false);
     }
@@ -143,7 +147,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <Sparkles className="text-blue-500" size={24} />
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">申报任务奖励</h2>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white">{ t('child.task_submit_title', '申报任务奖励') }</h2>
           </div>
           <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 active:scale-95 transition-all">
             <X size={20} />
@@ -158,7 +162,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
               onClick={() => setMode('rule')}
               className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${mode === 'rule' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500'}`}
             >
-              📋 选择已有任务
+              { t('child.task_select_rule', '📋 选择已有任务') }
             </button>
             <button 
               onClick={() => {
@@ -167,7 +171,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
               }}
               className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${mode === 'free' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500'}`}
             >
-              💡 自由提报好事
+              { t('child.task_free_submission', '💡 自由提报好事') }
             </button>
           </div>
 
@@ -176,7 +180,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
             
             {mode === 'rule' ? (
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-500">做完了哪项任务？</label>
+                <label className="text-sm font-bold text-gray-500">{ t('child.task_select_complete_rule', '做完了哪项任务？') }</label>
                 {loadingRules ? (
                   <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl animate-pulse h-12" />
                 ) : (
@@ -185,9 +189,9 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
                     onChange={(e) => handleRuleSelect(e.target.value)}
                     className="w-full p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl outline-none font-bold focus:ring-2 focus:ring-blue-500 appearance-none"
                   >
-                    <option value="" disabled>请选择...</option>
+                    <option value="" disabled>{ t('common.choose', '请选择...') }</option>
                     {rules.map(r => (
-                      <option key={r.id} value={r.id}>{r.emoji} {r.name} (+{r.points}分)</option>
+                      <option key={r.id} value={r.id}>{r.emoji} {r.name} (+{r.points} {currentFamily?.point_emoji || '🪙'})</option>
                     ))}
                   </select>
                 )}
@@ -195,22 +199,22 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-500">做了什么好事？</label>
+                  <label className="text-sm font-bold text-gray-500">{ t('child.task_free_submission_description', '做了什么好事？') }</label>
                   <input 
                     type="text" 
                     value={form.title}
                     onChange={e => setForm({...form, title: e.target.value})}
-                    placeholder="例如：帮奶奶提菜"
+                    placeholder={ t('child.task_free_submission_title_placeholder', '例如：帮奶奶提菜') }
                     className="w-full p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl outline-none font-bold focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-500">想要多少分奖励？</label>
+                  <label className="text-sm font-bold text-gray-500">{ t('child.task_free_submission_points', '想要多少分奖励？') }</label>
                   <input 
                     type="number" 
                     value={form.requestedPoints || ''}
                     onChange={e => setForm({...form, requestedPoints: Number(e.target.value)})}
-                    placeholder="输入分数"
+                    placeholder={ t('child.task_free_submission_points_placeholder', '输入分数') }
                     className="w-full p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl outline-none font-bold focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -220,7 +224,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
 
           {/* 凭证区：照片与留言 */}
           <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
-            <h3 className="font-bold text-gray-700 dark:text-gray-200">提交凭证 (证明一下吧)</h3>
+            <h3 className="font-bold text-gray-700 dark:text-gray-200">{ t('child.task_evidence_title', '提交凭证 (证明一下吧)') }</h3>
             
             {/* 上传图片按钮 */}
             <div>
@@ -235,9 +239,9 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
               
               {form.evidenceImage ? (
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-green-400 group">
-                  <img src={form.evidenceImage} alt="已上传" className="w-full h-full object-cover" />
+                  <img src={form.evidenceImage} alt={ t('child.task_evidence_image_alt', '已上传的图片') } className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button onClick={() => setForm({...form, evidenceImage: ''})} className="px-4 py-2 bg-red-500 text-white rounded-xl font-bold">删除重传</button>
+                     <button onClick={() => setForm({...form, evidenceImage: ''})} className="px-4 py-2 bg-red-500 text-white rounded-xl font-bold">{ t('child.task_delete_reupload', '删除重传') }</button>
                   </div>
                   <div className="absolute top-2 right-2 bg-green-500 text-white p-1.5 rounded-full shadow-md">
                     <CheckCircle2 size={16} />
@@ -250,7 +254,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
                   className="w-full h-24 border-2 border-dashed border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex flex-col items-center justify-center text-blue-600 dark:text-blue-400 font-bold active:scale-[0.98] transition-all"
                 >
                   {uploading ? <Loader2 className="animate-spin mb-1" size={24} /> : <Camera className="mb-1" size={24} />}
-                  <span>{uploading ? '正在上传图片...' : '拍照 / 传照片'}</span>
+                  <span>{uploading ? t('child.task_uploading_image', '正在上传图片...') : t('child.task_take_photo', '拍照 / 传照片')}</span>
                 </button>
               )}
             </div>
@@ -259,7 +263,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
             <textarea 
               value={form.evidenceText}
               onChange={e => setForm({...form, evidenceText: e.target.value})}
-              placeholder="给爸爸妈妈留句话吧（选填）"
+              placeholder={ t('child.task_evidence_text_placeholder', '给爸爸妈妈留句话吧（选填）') }
               className="w-full p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl outline-none text-sm resize-none h-20 focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -271,7 +275,7 @@ export default function ChildSubmitTaskDrawer({ isOpen, onClose, onSuccess }: Ch
             className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
           >
             {submitting ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-            {submitting ? '正在提交...' : '提交给家长审核'}
+            {submitting ? t('common.submitting', '正在提交...') : t('child.task_submit_btn', '提交给家长审核')}
           </button>
         </div>
       </div>

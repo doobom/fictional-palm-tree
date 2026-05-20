@@ -28,6 +28,9 @@ export default function ChildRewards() {
   const myProfile = childrenList.find(c => c.id === user?.id);
   const myCoins = myProfile ? (myProfile.balance || 0) : 0;
 
+  const { currentFamilyId, families } = useUserStore();
+  const currentFamily = families.find(f => f.id === currentFamilyId);
+
   const fetchStoreData = async () => {
     setLoading(true);
     try {
@@ -63,12 +66,12 @@ export default function ChildRewards() {
         rewardId: selectedReward.id,         
         title: selectedReward.name,          
         requestedPoints: selectedReward.cost,
-        evidenceText: evidenceText || '我想兑换这个商品！' 
+        evidenceText: evidenceText || t('child.reward_evidence_text_default', '我想兑换这个商品！')
       });
       
       // request.ts 拦截器只在报错时走 catch，成功时会返回 payload
       if (res && res.success) {
-        appToast.success('兑换申请已发送！请等待家长同意 🎁');
+        appToast.success(t('child.reward_request_success', '兑换申请已发送！请等待家长同意 🎁'));
         setSelectedReward(null);
       }
     } catch (err) {
@@ -100,7 +103,7 @@ export default function ChildRewards() {
             <Search size={16} className="text-gray-400 dark:text-gray-500" />
           </div>
           <input 
-            type="text" placeholder={t('parent.search_ph', '搜索奖品名称...')} value={keyword} onChange={e => setKeyword(e.target.value)}
+            type="text" placeholder={t('child.reward_search_ph', '搜索奖品名称...')} value={keyword} onChange={e => setKeyword(e.target.value)}
             className="w-full h-11 pl-9 pr-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-pink-500 outline-none transition-colors" 
           />
         </div>
@@ -109,7 +112,7 @@ export default function ChildRewards() {
           value={categoryId} onChange={e => setCategoryId(e.target.value)}
           className="h-11 px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm font-medium outline-none focus:ring-2 focus:ring-pink-500 max-w-[110px] truncate transition-colors"
         >
-          <option value="">{t('parent.all_categories', '全部分类')}</option>
+          <option value="">{t('child.categories_all', '全部分类')}</option>
           {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
         </select>
 
@@ -143,7 +146,7 @@ export default function ChildRewards() {
                 <div className="flex-1 flex flex-col justify-center">
                   <h3 className={`font-bold text-gray-900 dark:text-gray-100 truncate transition-colors ${viewMode === 'grid' ? 'text-center mb-1' : ''}`}>{reward.name}</h3>
                   <div className={`flex items-center justify-between ${viewMode === 'grid' ? 'mt-2' : 'mt-1'}`}>
-                    <span className={`font-extrabold text-sm transition-colors ${canAfford ? 'text-pink-500 dark:text-pink-400' : 'text-red-500 dark:text-red-400'}`}>{reward.cost} 🪙</span>
+                    <span className={`font-extrabold text-sm transition-colors ${canAfford ? 'text-pink-500 dark:text-pink-400' : 'text-red-500 dark:text-red-400'}`}>{reward.cost} {currentFamily?.point_emoji || '🪙'}</span>
                     <span className="text-[10px] font-bold text-gray-400 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md transition-colors">
                       {reward.stock === -1 ? t('child.stock_infinite', '不限量') : t('child.stock_left', { stock: reward.stock, defaultValue: `剩 ${reward.stock}` })}
                     </span>
@@ -177,11 +180,11 @@ export default function ChildRewards() {
               </button>
 
               <div className="text-7xl text-center mb-2 mt-4 animate-[bounce_2s_infinite]">{selectedReward.emoji || '🎁'}</div>
-              <h3 className="text-2xl font-black text-center text-gray-900 dark:text-white mb-2 transition-colors">想要这个奖励吗？</h3>
+              <h3 className="text-2xl font-black text-center text-gray-900 dark:text-white mb-2 transition-colors">{ t('child.reward_redeem_title', '想要这个奖励吗？') }</h3>
               
               <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mt-2 border border-gray-100 dark:border-gray-700 transition-colors">
                 <p className="text-center text-gray-600 dark:text-gray-300 font-medium text-sm leading-relaxed transition-colors mb-3">
-                  向家长发送「{selectedReward.name}」的兑换申请，审核通过后将扣除 <span className="text-pink-500 font-black">{selectedReward.cost} 🪙</span>
+                  { t('child.reward_evidence_text_desc', '向家长发送「{{name}}」的兑换申请，审核通过后将扣除 <span className="text-pink-500 font-black">{{cost}} {{point_emoji}}</span>', {name: selectedReward.name, cost: selectedReward.cost, point_emoji: currentFamily?.point_emoji || "🪙"}) }
                 </p>
                 
                 {/* 留言文本框 */}
@@ -192,23 +195,23 @@ export default function ChildRewards() {
                   <textarea 
                     value={evidenceText}
                     onChange={e => setEvidenceText(e.target.value)}
-                    placeholder="给家长留个言吧（选填）"
+                    placeholder={t('child.reward_evidence_text_placeholder', '给家长留个言吧（选填）')}
                     className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-pink-500 resize-none h-14 transition-colors dark:text-white"
                   />
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm font-bold transition-colors">
                   <span className="text-gray-500 dark:text-gray-400">{t('common.current_balance', '当前余额：')}</span>
-                  <span className="text-blue-500 dark:text-blue-400">{myCoins} 🪙</span>
+                  <span className="text-blue-500 dark:text-blue-400">{myCoins} {currentFamily?.point_emoji || "🪙"}</span>
                 </div>
               </div>
 
               <div className="flex space-x-3 mt-4">
                 <button disabled={isRedeeming} onClick={() => setSelectedReward(null)} className="flex-1 py-4 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all">
-                  {t('child.btn_cancel', '我再想想')}
+                  {t('child.reward_cancel', '我再想想')}
                 </button>
                 <button disabled={isRedeeming} onClick={handleRedeem} className="flex-1 py-4 rounded-2xl bg-pink-500 text-white font-bold active:bg-pink-600 active:scale-95 transition-all shadow-lg shadow-pink-200 dark:shadow-none flex justify-center items-center relative overflow-hidden">
-                  {isRedeeming ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="relative z-10">发送申请</span><div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full" /></>}
+                  {isRedeeming ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="relative z-10">{ t('child.reward_confirm', '是的，帮我兑换') }</span><div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full" /></>}
                 </button>
               </div>
             </div>

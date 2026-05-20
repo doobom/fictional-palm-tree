@@ -4,12 +4,16 @@ import { CheckCircle2, Circle, Clock, Loader2, Sparkles } from 'lucide-react';
 import service, { ApiResponse } from '../../api/request';
 import { useUserStore } from '../../store';
 import { appToast } from '../../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 export default function ChildRoutinesWidget() {
   const [loading, setLoading] = useState(true);
 
-  const { user, setChildrenList, currentFamilyId, routinesList, routineLogs, fetchRoutinesAction } = useUserStore();
+  const { user, setChildrenList, currentFamilyId, families, routinesList, routineLogs, fetchRoutinesAction } = useUserStore();
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const { t } = useTranslation();
+
+  const currentFamily = families.find(f => f.id === currentFamilyId);
 
   // 获取本地今天的 YYYY-MM-DD 格式
   const todayStr = new Date().toLocaleDateString('en-CA'); 
@@ -48,9 +52,9 @@ export default function ChildRoutinesWidget() {
       
       if (res && res.success) {
         if (routine.auto_approve) {
-          appToast.success(`打卡成功！+${routine.points} 积分 🪙`);
+          appToast.success( t('child.routine_checkin_success', '打卡成功，获得 {{points}} {{emoji}}', { points: routine.points, emoji: currentFamily?.point_emoji || '🪙' }) );
         } else {
-          appToast.success('已提交！等待家长审核 🎁');
+          appToast.success( t('child.routine_checkin_pending', '已提交！等待家长审核 🎁') );
         }
         // 🌟 关键：打卡成功后触发全局刷新
         // fetchRoutinesAction(currentFamilyId!, user?.id); 
@@ -75,7 +79,7 @@ export default function ChildRoutinesWidget() {
     <section className="bg-white dark:bg-gray-800 rounded-[32px] p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="text-yellow-500" size={20} />
-        <h2 className="text-lg font-black text-gray-900 dark:text-white">今日习惯打卡</h2>
+        <h2 className="text-lg font-black text-gray-900 dark:text-white">{ t('child.routine_checkin_title', '今日习惯打卡') }</h2>
       </div>
 
       <div className="space-y-3">
@@ -102,7 +106,7 @@ export default function ChildRoutinesWidget() {
                   {routine.name}
                 </h4>
                 <p className={`text-sm font-bold ${isChecked ? 'text-gray-400' : 'text-blue-500'}`}>
-                  +{routine.points} PTS {routine.auto_approve ? '' : '(需审核)'}
+                  +{routine.points} {currentFamily?.point_emoji || '🪙'} {routine.auto_approve ? '' : t('child.reward_need_approve', '(需要家长审批)')}
                 </p>
               </div>
 

@@ -9,6 +9,7 @@ import { Activity,Target, ArrowRight, Camera } from 'lucide-react';
 import ChildGoalDrawer from './ChildGoalDrawer';
 import ChildSubmitTaskDrawer from './ChildSubmitTaskDrawer'; // 引入组件
 import ChildRoutinesWidget from './ChildRoutinesWidget'; // 引入组件
+import { useTranslation } from 'react-i18next';
 
 export interface ChildDetail {
   id: string;
@@ -22,6 +23,7 @@ export interface ChildDetail {
 const ChildDashboard: React.FC = () => {
   const { currentFamilyId, families, user } = useUserStore();
   const { triggerImpact } = usePlatformApp(); 
+  const { t } = useTranslation();
   
   const [data, setData] = useState<ChildDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ const ChildDashboard: React.FC = () => {
 
   const handleRedeemRequest = () => {
     triggerImpact('heavy'); 
-    appToast.info('正在为您打开奖品商店...'); 
+    appToast.info(t('child.reward_redeem_loading', '正在为您打开奖品商店...')); 
     window.location.hash = '#/child/rewards'; // 放开注释，允许跳转
   };
 
@@ -77,7 +79,7 @@ const ChildDashboard: React.FC = () => {
       // 🌟 加载页暗黑适配
       <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 dark:bg-gray-900 pb-20 transition-colors duration-300">
         <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-blue-500 dark:text-blue-400 font-bold animate-pulse">正在进入您的专属乐园...</p>
+        <p className="text-blue-500 dark:text-blue-400 font-bold animate-pulse">{ t('child.dashboard_welcome', '正在进入您的专属乐园...') }</p>
       </div>
     );
   }
@@ -100,12 +102,12 @@ const ChildDashboard: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 transition-colors">Hi, {data?.name}!</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm transition-colors">{currentFamily?.name} 的小勇士</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm transition-colors">{ t('child.dashboard_title_desc', '{{name}} 的小勇士', { name: currentFamily?.name  }) }</p>
           </div>
         </div>
 
         <div className="bg-blue-600 dark:bg-blue-500 rounded-2xl p-5 text-white shadow-lg shadow-blue-300 dark:shadow-none relative z-10 transition-colors">
-          <p className="text-blue-100 text-sm font-medium mb-1">我的当前可用{currentFamily?.point_name || '积分'}</p>
+          <p className="text-blue-100 text-sm font-medium mb-1">{ t('child.dashboard_point_balance_desc', '我的当前可用{{point_name}}', { point_name: currentFamily?.point_name || '积分' }) }</p>
           <div className="flex items-baseline gap-2">
             <span className="text-5xl font-black tracking-tight">{data?.balance || 0}</span>
             <span className="text-xl opacity-90">{currentFamily?.point_emoji || '🪙'}</span>
@@ -115,7 +117,7 @@ const ChildDashboard: React.FC = () => {
             onClick={() => setSubmitDrawerOpen(true)}
             className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black text-lg rounded-[24px] shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-3 active:scale-[0.98] transition-all"
           >
-            <Camera size={24} /> 拍一张！申报任务奖励
+            <Camera size={24} /> { t('child.task_submit', '拍一张！申报任务奖励') }
           </button>
         </div>
       </section>
@@ -131,7 +133,7 @@ const ChildDashboard: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Target className="text-blue-500" size={20} />
-            <h2 className="text-lg font-black dark:text-white">专注心愿</h2>
+            <h2 className="text-lg font-black dark:text-white">{ t('child.goal_progress_title', '专注心愿') }</h2>
           </div>
           <ArrowRight className="text-gray-400" size={20} />
         </div>
@@ -142,7 +144,7 @@ const ChildDashboard: React.FC = () => {
               <span className="text-5xl">{activeGoal.emoji}</span>
               <div className="flex-1">
                 <p className="font-black text-gray-900 dark:text-white text-xl">{activeGoal.name}</p>
-                <p className="text-gray-500 font-bold text-sm">已攒 {activeGoal.current_points} / {activeGoal.target_points} 分</p>
+                <p className="text-gray-500 font-bold text-sm">{ t('child.goal_progress_desc', '已攒 {{current}} / {{target}} {{point_emoji}}', { current: activeGoal.current_points, target: activeGoal.target_points, point_emoji: currentFamily?.point_emoji || '🪙' }) }</p>
               </div>
             </div>
             {/* 炫酷的进度条 */}
@@ -154,7 +156,7 @@ const ChildDashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <p className="text-gray-400 font-bold py-4 text-center">还没有选定愿望，点击去许愿吧 ✨</p>
+          <p className="text-gray-400 font-bold py-4 text-center">{ t('child.goal_progress_empty', '还没有选定愿望，点击去许愿吧! ✨') }</p>
         )}
       </section>
 
@@ -163,7 +165,7 @@ const ChildDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
             <Activity className="text-blue-500" size={20} />
-            最近 7 天成长轨迹
+            { t('child.score_trend_title', '最近 7 天成长轨迹') }
           </h2>
         </div>
         
@@ -171,7 +173,7 @@ const ChildDashboard: React.FC = () => {
         {childId ? (
           <ScoreTrendChart childId={childId} />
         ) : (
-          <div className="text-center text-sm text-gray-400 mt-10">加载中...</div>
+          <div className="text-center text-sm text-gray-400 mt-10">{ t('common.loading', '加载中...') }</div>
         )}
       </section>
 
@@ -179,18 +181,18 @@ const ChildDashboard: React.FC = () => {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 text-center shadow-sm transition-colors duration-300">
           <p className="text-3xl mb-2">🏆</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider transition-colors">已获成就</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider transition-colors">{ t('child.achievements_total_desc', '已获成就') }</p>
           <p className="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1 transition-colors">{data?.achievementCount || 0}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 text-center shadow-sm transition-colors duration-300">
           <p className="text-3xl mb-2">🎁</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider transition-colors">心愿清单</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider transition-colors">{ t('child.goal_list_total_desc', '心愿清单') }</p>
           <p className="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1 transition-colors">3</p>
         </div>
       </div>
 
       {/* 3. 快捷行动区 */}
-      <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-3 px-1 text-lg transition-colors">快速行动</h3>
+      <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-3 px-1 text-lg transition-colors">{ t('child.quick_actions_title', '快速行动') }</h3>
       <div className="grid gap-4">
         <button 
           onClick={handleRedeemRequest}
@@ -198,18 +200,18 @@ const ChildDashboard: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl bg-white/20 p-2 rounded-xl">🛍️</span>
-            <span className="text-lg">兑换我的心仪奖品</span>
+            <span className="text-lg">{ t('child.reward_redeem_btn', '兑换我的心仪奖品') }</span>
           </div>
           <span className="opacity-80 text-xl">→</span>
         </button>
 
         <button 
-          onClick={() => appToast.info('开发中，敬请期待！')}
+          onClick={() => appToast.info(t('common.comming_soon', '敬请期待！'))}
           className="w-full bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 p-4 rounded-2xl font-bold flex items-center justify-between text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95 shadow-sm"
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl bg-gray-50 dark:bg-gray-700 p-2 rounded-xl transition-colors">📈</span>
-            <span className="text-lg">查看积分成长轨迹</span>
+            <span className="text-lg">{ t('child.score_trend_checkin_title', '查看积分成长轨迹') }</span>
           </div>
           <span className="text-gray-300 dark:text-gray-500 text-xl transition-colors">→</span>
         </button>
@@ -218,7 +220,7 @@ const ChildDashboard: React.FC = () => {
       {/* 4. 底部鼓励语 */}
       <div className="mt-10 flex justify-center">
         <p className="text-center text-gray-400 dark:text-gray-500 text-xs italic bg-white/50 dark:bg-gray-800/50 px-4 py-2 rounded-full inline-block transition-colors">
-          ✨ 继续加油！再获得 50 {currentFamily?.point_name || '积分'} 就能兑换惊喜啦！
+          { t('child.encouragement', '✨ 继续加油！再获得 {{points}} {{point_emoji}} 就能兑换惊喜啦！', {points: 50, point_emoji: currentFamily?.point_emoji || '🪙'}) }
         </p>
       </div>
 
